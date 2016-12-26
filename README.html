@@ -1,0 +1,656 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1. README &#8212; fio 1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="top" title="fio 1 documentation" href="index.html" />
+    <link rel="next" title="2. HOWTO" href="HOWTO.html" />
+    <link rel="prev" title="Welcome to FIO’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="readme">
+<h1>1. README<a class="headerlink" href="#readme" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="fio">
+<h2>1.1. fio<a class="headerlink" href="#fio" title="Permalink to this headline">¶</a></h2>
+<p>fio is a tool that will spawn a number of threads or processes doing a
+particular type of io action as specified by the user. fio takes a
+number of global parameters, each inherited by the thread unless
+otherwise parameters given to them overriding that setting is given.
+The typical use of fio is to write a job file matching the io load
+one wants to simulate.</p>
+</div>
+<div class="section" id="source">
+<h2>1.2. Source<a class="headerlink" href="#source" title="Permalink to this headline">¶</a></h2>
+<p>fio resides in a git repo, the canonical place is:</p>
+<blockquote>
+<div>git://git.kernel.dk/fio.git</div></blockquote>
+<p>When inside a corporate firewall, git:// URL sometimes does not work.
+If git:// does not work, use the http protocol instead:</p>
+<blockquote>
+<div><a class="reference external" href="http://git.kernel.dk/fio.git">http://git.kernel.dk/fio.git</a></div></blockquote>
+<p>Snapshots are frequently generated and include the git meta data as well.
+Snapshots can download from:</p>
+<blockquote>
+<div><a class="reference external" href="http://brick.kernel.dk/snaps/">http://brick.kernel.dk/snaps/</a></div></blockquote>
+<p>There are also two official mirrors. Both of these are automatically synced
+with the main repository, when changes are pushed. If the main repo is down
+for some reason, either one of these is safe to use as a backup:</p>
+<blockquote>
+<div><p>git://git.kernel.org/pub/scm/linux/kernel/git/axboe/fio.git</p>
+<p><a class="reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/axboe/fio.git">https://git.kernel.org/pub/scm/linux/kernel/git/axboe/fio.git</a></p>
+</div></blockquote>
+<p>or</p>
+<blockquote>
+<div><p>git://github.com/axboe/fio.git</p>
+<p><a class="reference external" href="https://github.com/axboe/fio.git">https://github.com/axboe/fio.git</a></p>
+</div></blockquote>
+</div>
+<div class="section" id="binary-packages">
+<h2>1.3. Binary packages<a class="headerlink" href="#binary-packages" title="Permalink to this headline">¶</a></h2>
+<p>Debian:
+Starting with Debian &#8220;Squeeze&#8221;, fio packages are part of the official
+Debian repository. <a class="reference external" href="http://packages.debian.org/search?keywords=fio">http://packages.debian.org/search?keywords=fio</a></p>
+<p>Ubuntu:
+Starting with Ubuntu 10.04 LTS (aka &#8220;Lucid Lynx&#8221;), fio packages are part
+of the Ubuntu &#8220;universe&#8221; repository.
+<a class="reference external" href="http://packages.ubuntu.com/search?keywords=fio">http://packages.ubuntu.com/search?keywords=fio</a></p>
+<p>Red Hat, CentOS &amp; Co:
+Dag Wieërs has RPMs for Red Hat related distros, find them here:
+<a class="reference external" href="http://dag.wieers.com/rpm/packages/fio/">http://dag.wieers.com/rpm/packages/fio/</a></p>
+<p>Mandriva:
+Mandriva has integrated fio into their package repository, so installing
+on that distro should be as easy as typing &#8216;urpmi fio&#8217;.</p>
+<p>Solaris:
+Packages for Solaris are available from OpenCSW. Install their pkgutil
+tool (<a class="reference external" href="http://www.opencsw.org/get-it/pkgutil/">http://www.opencsw.org/get-it/pkgutil/</a>) and then install fio via
+&#8216;pkgutil -i fio&#8217;.</p>
+<p>Windows:
+Bruce Cran &lt;<a class="reference external" href="mailto:bruce&#37;&#52;&#48;cran&#46;org&#46;uk">bruce<span>&#64;</span>cran<span>&#46;</span>org<span>&#46;</span>uk</a>&gt; has fio packages for Windows at
+<a class="reference external" href="http://www.bluestop.org/fio/">http://www.bluestop.org/fio/</a> .</p>
+</div>
+<div class="section" id="mailing-list">
+<h2>1.4. Mailing list<a class="headerlink" href="#mailing-list" title="Permalink to this headline">¶</a></h2>
+<p>The fio project mailing list is meant for anything related to fio including
+general discussion, bug reporting, questions, and development.</p>
+<p>An automated mail detailing recent commits is automatically sent to the
+list at most daily. The list address is <a class="reference external" href="mailto:fio&#37;&#52;&#48;vger&#46;kernel&#46;org">fio<span>&#64;</span>vger<span>&#46;</span>kernel<span>&#46;</span>org</a>, subscribe
+by sending an email to <a class="reference external" href="mailto:majordomo&#37;&#52;&#48;vger&#46;kernel&#46;org">majordomo<span>&#64;</span>vger<span>&#46;</span>kernel<span>&#46;</span>org</a> with</p>
+<blockquote>
+<div>subscribe fio</div></blockquote>
+<p>in the body of the email. Archives can be found here:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.spinics.net/lists/fio/">http://www.spinics.net/lists/fio/</a></div></blockquote>
+<p>and archives for the old list can be found here:</p>
+<blockquote>
+<div><a class="reference external" href="http://maillist.kernel.dk/fio-devel/">http://maillist.kernel.dk/fio-devel/</a></div></blockquote>
+</div>
+<div class="section" id="reporting-a-bug">
+<h2>1.5. Reporting a bug<a class="headerlink" href="#reporting-a-bug" title="Permalink to this headline">¶</a></h2>
+<p>If you notice anything that seems like a fio bug, please do send email
+to the list (<a class="reference external" href="mailto:fio&#37;&#52;&#48;vger&#46;kernel&#46;org">fio<span>&#64;</span>vger<span>&#46;</span>kernel<span>&#46;</span>org</a>, see README) about it. If you are not
+running the newest release of fio, upgrading first is recommended.</p>
+<p>When reporting a bug, you&#8217;ll need to include:</p>
+<ol class="arabic simple">
+<li>A description of what you think the bug is</li>
+<li>Environment (Linux distro version, kernel version). This is mostly
+needed if it&#8217;s a build bug.</li>
+<li>The output from fio &#8211;version.</li>
+<li>How to reproduce. Please include a full list of the parameters
+passed to fio and the job file used (if any).</li>
+</ol>
+<p>A bug report can never have too much information. Any time information
+is left out and has to be asked for, it&#8217;ll add to the turn-around time
+of getting to the bottom of it and committing a fix.</p>
+<p>That&#8217;s it!</p>
+</div>
+<div class="section" id="building">
+<h2>1.6. Building<a class="headerlink" href="#building" title="Permalink to this headline">¶</a></h2>
+<p>Just type &#8216;configure&#8217;, &#8216;make&#8217; and &#8216;make install&#8217;.</p>
+<p>Note that GNU make is required. On BSD it&#8217;s available from devel/gmake;
+on Solaris it&#8217;s in the SUNWgmake package. On platforms where GNU make
+isn&#8217;t the default, type &#8216;gmake&#8217; instead of &#8216;make&#8217;.</p>
+<p>Configure will print the enabled options. Note that on Linux based
+platforms, the libaio development packages must be installed to use
+the libaio engine. Depending on distro, it is usually called
+libaio-devel or libaio-dev.</p>
+<p>For gfio, gtk 2.18 (or newer), associated glib threads, and cairo are required
+to be installed.  gfio isn&#8217;t built automatically and can be enabled
+with a &#8211;enable-gfio option to configure.</p>
+<p>To build FIO with a cross-compiler:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ make clean
+$ make CROSS_COMPILE=/path/to/toolchain/prefix
+</pre></div>
+</div>
+<p>Configure will attempt to determine the target platform automatically.</p>
+<p>It&#8217;s possible to build fio for ESX as well, use the &#8211;esx switch to
+configure.</p>
+</div>
+<div class="section" id="windows">
+<h2>1.7. Windows<a class="headerlink" href="#windows" title="Permalink to this headline">¶</a></h2>
+<p>On Windows, Cygwin (<a class="reference external" href="http://www.cygwin.com/">http://www.cygwin.com/</a>) is required in order to
+build fio. To create an MSI installer package install WiX 3.8 from
+<a class="reference external" href="http://wixtoolset.org">http://wixtoolset.org</a> and run dobuild.cmd from the
+os/windows directory.</p>
+<p>How to compile fio on 64-bit Windows:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>Install Cygwin (<a class="reference external" href="http://www.cygwin.com/">http://www.cygwin.com/</a>). Install &#8216;make&#8217; and all
+packages starting with &#8216;mingw64-i686&#8217; and &#8216;mingw64-x86_64&#8217;.</li>
+<li>Open the Cygwin Terminal.</li>
+<li>Go to the fio directory (source files).</li>
+<li>Run &#8216;make clean &amp;&amp; make -j&#8217;.</li>
+</ol>
+</div></blockquote>
+<p>To build fio on 32-bit Windows, run &#8216;./configure &#8211;build-32bit-win&#8217; before &#8216;make&#8217;.</p>
+<p>It&#8217;s recommended that once built or installed, fio be run in a Command Prompt
+or other &#8216;native&#8217; console such as console2, since there are known to be display
+and signal issues when running it under a Cygwin shell
+(see <a class="reference external" href="http://code.google.com/p/mintty/issues/detail?id=56">http://code.google.com/p/mintty/issues/detail?id=56</a> for details).</p>
+</div>
+<div class="section" id="command-line">
+<h2>1.8. Command line<a class="headerlink" href="#command-line" title="Permalink to this headline">¶</a></h2>
+<p>$ <strong>fio</strong></p>
+<dl class="option">
+<dt id="cmdoption--debug">
+<code class="descname">--debug</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--debug" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enable some debugging options (see below)</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--parse-only">
+<code class="descname">--parse-only</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--parse-only" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse options only, don&#8217;t start any IO</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--output">
+<code class="descname">--output</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--output" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write output to file</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--runtime">
+<code class="descname">--runtime</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--runtime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Runtime in seconds</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--bandwidth-log">
+<code class="descname">--bandwidth-log</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--bandwidth-log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate per-job bandwidth logs</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--minimal">
+<code class="descname">--minimal</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--minimal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Minimal (terse) output</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--output-format">
+<code class="descname">--output-format</code><code class="descclassname">=type</code><a class="headerlink" href="#cmdoption--output-format" title="Permalink to this definition">¶</a></dt>
+<dd><p>Output format (terse,json,normal)</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--terse-version">
+<code class="descname">--terse-version</code><code class="descclassname">=type</code><a class="headerlink" href="#cmdoption--terse-version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Terse version output format (default 3, or 2 or 4).</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--version">
+<code class="descname">--version</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print version info and exit</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--help">
+<code class="descname">--help</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--help" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print this page</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--cpuclock-test">
+<code class="descname">--cpuclock-test</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--cpuclock-test" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform test/validation of CPU clock</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--crctest">
+<code class="descname">--crctest</code><code class="descclassname">[=test]</code><a class="headerlink" href="#cmdoption--crctest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Test speed of checksum functions</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--cmdhelp">
+<code class="descname">--cmdhelp</code><code class="descclassname">=cmd</code><a class="headerlink" href="#cmdoption--cmdhelp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print command help, &#8220;all&#8221; for all of them</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--enghelp">
+<code class="descname">--enghelp</code><code class="descclassname">=engine</code><a class="headerlink" href="#cmdoption--enghelp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print ioengine help, or list available ioengines</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--enghelp">
+<code class="descname">--enghelp</code><code class="descclassname">=engine,cmd</code><a class="headerlink" href="#cmdoption--enghelp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Print help for an ioengine cmd</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--showcmd">
+<code class="descname">--showcmd</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--showcmd" title="Permalink to this definition">¶</a></dt>
+<dd><p>Turn a job file into command line options</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--readonly">
+<code class="descname">--readonly</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--readonly" title="Permalink to this definition">¶</a></dt>
+<dd><p>Turn on safety read-only checks, preventing writes</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--eta">
+<code class="descname">--eta</code><code class="descclassname">=when</code><a class="headerlink" href="#cmdoption--eta" title="Permalink to this definition">¶</a></dt>
+<dd><p>When ETA estimate should be printed.
+May be &#8220;always&#8221;, &#8220;never&#8221; or &#8220;auto&#8221;</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--eta-newline">
+<code class="descname">--eta-newline</code><code class="descclassname">=time</code><a class="headerlink" href="#cmdoption--eta-newline" title="Permalink to this definition">¶</a></dt>
+<dd><p>Force a new line for every &#8216;time&#8217; period passed</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--status-interval">
+<code class="descname">--status-interval</code><code class="descclassname">=t</code><a class="headerlink" href="#cmdoption--status-interval" title="Permalink to this definition">¶</a></dt>
+<dd><p>Force full status dump every &#8216;t&#8217; period passed</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--section">
+<code class="descname">--section</code><code class="descclassname">=name</code><a class="headerlink" href="#cmdoption--section" title="Permalink to this definition">¶</a></dt>
+<dd><p>Only run specified section in job file.
+Multiple sections can be specified.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--alloc-size">
+<code class="descname">--alloc-size</code><code class="descclassname">=kb</code><a class="headerlink" href="#cmdoption--alloc-size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set smalloc pool to this size in kb (def 1024)</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--warnings-fatal">
+<code class="descname">--warnings-fatal</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--warnings-fatal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fio parser warnings are fatal</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--max-jobs">
+<code class="descname">--max-jobs</code><code class="descclassname"></code><a class="headerlink" href="#cmdoption--max-jobs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maximum number of threads/processes to support</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--server">
+<code class="descname">--server</code><code class="descclassname">=args</code><a class="headerlink" href="#cmdoption--server" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start backend server. See Client/Server section.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--client">
+<code class="descname">--client</code><code class="descclassname">=host</code><a class="headerlink" href="#cmdoption--client" title="Permalink to this definition">¶</a></dt>
+<dd><p>Connect to specified backend.</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--remote-config">
+<code class="descname">--remote-config</code><code class="descclassname">=file</code><a class="headerlink" href="#cmdoption--remote-config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tell fio server to load this local file</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--idle-prof">
+<code class="descname">--idle-prof</code><code class="descclassname">=option</code><a class="headerlink" href="#cmdoption--idle-prof" title="Permalink to this definition">¶</a></dt>
+<dd><p>Report cpu idleness on a system or percpu basis
+(option=system,percpu) or run unit work
+calibration only (option=calibrate).</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--inflate-log">
+<code class="descname">--inflate-log</code><code class="descclassname">=log</code><a class="headerlink" href="#cmdoption--inflate-log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Inflate and output compressed log</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--trigger-file">
+<code class="descname">--trigger-file</code><code class="descclassname">=file</code><a class="headerlink" href="#cmdoption--trigger-file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Execute trigger cmd when file exists</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--trigger-timeout">
+<code class="descname">--trigger-timeout</code><code class="descclassname">=t Execute</code><a class="headerlink" href="#cmdoption--trigger-timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>trigger af this time</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--trigger">
+<code class="descname">--trigger</code><code class="descclassname">=cmd</code><a class="headerlink" href="#cmdoption--trigger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set this command as local trigger</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--trigger-remote">
+<code class="descname">--trigger-remote</code><code class="descclassname">=cmd</code><a class="headerlink" href="#cmdoption--trigger-remote" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set this command as remote trigger</p>
+</dd></dl>
+
+<dl class="option">
+<dt id="cmdoption--aux-path">
+<code class="descname">--aux-path</code><code class="descclassname">=path</code><a class="headerlink" href="#cmdoption--aux-path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use this path for fio state generated files</p>
+</dd></dl>
+
+<p>Any parameters following the options will be assumed to be job files,
+unless they match a job file parameter. Multiple job files can be listed
+and each job file will be regarded as a separate group. fio will stonewall
+execution between each group.</p>
+<p>The &#8211;readonly option is an extra safety guard to prevent users from
+accidentally starting a write workload when that is not desired.  Fio
+will only write if rw=write/randwrite/rw/randrw is given.  This extra
+safety net can be used as an extra precaution as &#8211;readonly will also
+enable a write check in the io engine core to prevent writes due to
+unknown user space bug(s).</p>
+<p>The &#8211;debug option triggers additional logging by fio.
+Currently, additional logging is available for:</p>
+<ul class="simple">
+<li><strong>process</strong>             - Dump info related to processes</li>
+<li><strong>file</strong>                - Dump info related to file actions</li>
+<li><strong>io</strong>                  - Dump info related to IO queuing</li>
+<li><strong>mem</strong>                 - Dump info related to memory allocations</li>
+<li><strong>blktrace</strong>            - Dump info related to blktrace setup</li>
+<li><strong>verify</strong>              - Dump info related to IO verification</li>
+<li><strong>all</strong>                 - Enable all debug options</li>
+<li><strong>random</strong>              - Dump info related to random offset generation</li>
+<li><strong>parse</strong>               - Dump info related to option matching and parsing</li>
+<li><strong>diskutil</strong>            - Dump info related to disk utilization updates</li>
+<li><strong>job:x</strong>               - Dump info only related to job number x</li>
+<li><strong>mutex</strong>               - Dump info only related to mutex up/down ops</li>
+<li><strong>profile</strong>             - Dump info related to profile extensions</li>
+<li><strong>time</strong>                - Dump info related to internal time keeping</li>
+<li><strong>net</strong>                 - Dump info related to networking connections</li>
+<li><strong>rate</strong>                - Dump info related to IO rate switching</li>
+<li><strong>compress</strong>            - Dump info related to log compress/decompress</li>
+<li><strong>?</strong> or <strong>help</strong>       - Show available debug options.</li>
+</ul>
+<p>One can specify multiple debug options: e.g. &#8211;debug=file,mem will enable
+file and memory debugging.</p>
+<p>The <cite>&#8211;section</cite> option allows one to combine related jobs into one file.
+E.g. one job file could define light, moderate, and heavy sections. Tell fio to
+run only the &#8220;heavy&#8221; section by giving <cite>&#8211;section=heavy</cite> command line option.
+One can also specify the &#8220;write&#8221; operations in one section and &#8220;verify&#8221;
+operation in another section.  The <cite>&#8211;section</cite> option only applies to job
+sections.  The reserved &#8216;global&#8217; section is always parsed and used.</p>
+<p>The <cite>&#8211;alloc-size</cite> switch allows one to use a larger pool size for smalloc.
+If running large jobs with randommap enabled, fio can run out of memory.
+Smalloc is an internal allocator for shared structures from a fixed size
+memory pool. The pool size defaults to 16M and can grow to 8 pools.</p>
+<p>NOTE: While running <cite>.fio_smalloc.*</cite> backing store files are visible in <cite>/tmp</cite>.</p>
+</div>
+<div class="section" id="job-file">
+<h2>1.9. Job file<a class="headerlink" href="#job-file" title="Permalink to this headline">¶</a></h2>
+<p>See the HOWTO file for a complete description of job file syntax and
+parameters.  The <cite>&#8211;cmdhelp</cite> option also lists all options. If used with
+an option argument, <cite>&#8211;cmdhelp</cite> will detail the given option.  The job file
+format is in the ini style format, as that is easy for the user to review
+and modify.</p>
+<p>This README contains the terse version. Job files can describe big and
+complex setups that are not possible with the command line.  Job files
+are a good practice even for simple jobs since the file provides an
+easily accessed record of the workload and can include comments.</p>
+<p>See the examples/ directory for inspiration on how to write job files.  Note
+the copyright and license requirements currently apply to examples/ files.</p>
+</div>
+<div class="section" id="client-server">
+<h2>1.10. Client/server<a class="headerlink" href="#client-server" title="Permalink to this headline">¶</a></h2>
+<p>Normally fio is invoked as a stand-alone application on the machine
+where the IO workload should be generated. However, the frontend and
+backend of fio can be run separately. Ie the fio server can generate
+an IO workload on the &#8220;Device Under Test&#8221; while being controlled from
+another machine.</p>
+<p>Start the server on the machine which has access to the storage DUT:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fio</span> <span class="o">--</span><span class="n">server</span><span class="o">=</span><span class="n">args</span>
+</pre></div>
+</div>
+<p>where args defines what fio listens to. The arguments are of the form
+&#8216;type,hostname or IP,port&#8217;. &#8216;type&#8217; is either &#8216;ip&#8217; (or ip4) for TCP/IP v4,
+&#8216;ip6&#8217; for TCP/IP v6, or &#8216;sock&#8217; for a local unix domain socket.
+&#8216;hostname&#8217; is either a hostname or IP address, and &#8216;port&#8217; is the port to
+listen to (only valid for TCP/IP, not a local socket). Some examples:</p>
+<ol class="arabic">
+<li><p class="first">fio &#8211;server</p>
+<p>Start a fio server, listening on all interfaces on the default port (8765).</p>
+</li>
+<li><p class="first">fio &#8211;server=ip:hostname,4444</p>
+<p>Start a fio server, listening on IP belonging to hostname and on port 4444.</p>
+</li>
+<li><p class="first">fio &#8211;server=ip6:::1,4444</p>
+<p>Start a fio server, listening on IPv6 localhost ::1 and on port 4444.</p>
+</li>
+<li><p class="first">fio &#8211;server=,4444</p>
+<p>Start a fio server, listening on all interfaces on port 4444.</p>
+</li>
+<li><p class="first">fio &#8211;server=1.2.3.4</p>
+<p>Start a fio server, listening on IP 1.2.3.4 on the default port.</p>
+</li>
+<li><p class="first">fio &#8211;server=sock:/tmp/fio.sock</p>
+<p>Start a fio server, listening on the local socket /tmp/fio.sock.</p>
+</li>
+</ol>
+<p>Once a server is running, a &#8220;client&#8221; can connect to the fio server with:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fio</span> <span class="o">--</span><span class="n">local</span><span class="o">-</span><span class="n">args</span> <span class="o">--</span><span class="n">client</span><span class="o">=&lt;</span><span class="n">server</span><span class="o">&gt;</span> <span class="o">--</span><span class="n">remote</span><span class="o">-</span><span class="n">args</span> <span class="o">&lt;</span><span class="n">job</span> <span class="n">file</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>where &#8216;&#8211;local-args&#8217; are arguments for the client where it is
+running, &#8216;server&#8217; is the connect string, and &#8216;&#8211;remote-args&#8217; and &lt;job file(s)&gt;
+are sent to the server. The &#8216;server&#8217; string follows the same format as it
+does on the server side, to allow IP/hostname/socket and port strings.</p>
+<p>Fio can connect to multiple servers this way:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fio</span> <span class="o">--</span><span class="n">client</span><span class="o">=&lt;</span><span class="n">server1</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">job</span> <span class="n">file</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">&gt;</span> <span class="o">--</span><span class="n">client</span><span class="o">=&lt;</span><span class="n">server2</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">job</span> <span class="n">file</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>If the job file is located on the fio server, then you can tell the server
+to load a local file as well. This is done by using &#8211;remote-config:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fio</span> <span class="o">--</span><span class="n">client</span><span class="o">=</span><span class="n">server</span> <span class="o">--</span><span class="n">remote</span><span class="o">-</span><span class="n">config</span> <span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">file</span><span class="o">.</span><span class="n">fio</span>
+</pre></div>
+</div>
+<p>Then fio will open this local (to the server) job file instead
+of being passed one from the client.</p>
+<p>If you have many servers (example: 100 VMs/containers),
+you can input a pathname of a file containing host IPs/names as the parameter
+value for the &#8211;client option.  For example, here is an example &#8220;host.list&#8221;
+file containing 2 hostnames:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">host1</span><span class="o">.</span><span class="n">your</span><span class="o">.</span><span class="n">dns</span><span class="o">.</span><span class="n">domain</span>
+<span class="n">host2</span><span class="o">.</span><span class="n">your</span><span class="o">.</span><span class="n">dns</span><span class="o">.</span><span class="n">domain</span>
+</pre></div>
+</div>
+<p>The fio command would then be:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fio</span> <span class="o">--</span><span class="n">client</span><span class="o">=</span><span class="n">host</span><span class="o">.</span><span class="n">list</span> <span class="o">&lt;</span><span class="n">job</span> <span class="n">file</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>In this mode, you cannot input server-specific parameters or job files &#8211; all
+servers receive the same job file.</p>
+<p>In order to let fio &#8211;client runs use a shared filesystem
+from multiple hosts, fio  &#8211;client now prepends the IP address of the
+server to the filename.  For example, if fio is using directory /mnt/nfs/fio
+and is writing filename fileio.tmp, with a &#8211;client hostfile containing
+two hostnames h1 and h2 with IP addresses 192.168.10.120 and  192.168.10.121,
+then fio will create two files:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">nfs</span><span class="o">/</span><span class="n">fio</span><span class="o">/</span><span class="mf">192.168</span><span class="o">.</span><span class="mf">10.120</span><span class="o">.</span><span class="n">fileio</span><span class="o">.</span><span class="n">tmp</span>
+<span class="o">/</span><span class="n">mnt</span><span class="o">/</span><span class="n">nfs</span><span class="o">/</span><span class="n">fio</span><span class="o">/</span><span class="mf">192.168</span><span class="o">.</span><span class="mf">10.121</span><span class="o">.</span><span class="n">fileio</span><span class="o">.</span><span class="n">tmp</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="platforms">
+<h2>1.11. Platforms<a class="headerlink" href="#platforms" title="Permalink to this headline">¶</a></h2>
+<p>Fio works on (at least) Linux, Solaris, AIX, HP-UX, OSX, NetBSD, OpenBSD,
+Windows, FreeBSD, and DragonFly. Some features and/or options may only be
+available on some of the platforms, typically because those features only
+apply to that platform (like the solarisaio engine, or the splice engine on
+Linux).</p>
+<p>Some features are not available on FreeBSD/Solaris even if they could be
+implemented, I&#8217;d be happy to take patches for that. An example of that is
+disk utility statistics and (I think) huge page support, support for that
+does exist in FreeBSD/Solaris.</p>
+<p>Fio uses pthread mutexes for signalling and locking and FreeBSD does not
+support process shared pthread mutexes. As a result, only threads are
+supported on FreeBSD. This could be fixed with sysv ipc locking or
+other locking alternatives.</p>
+<p>Other *BSD platforms are untested, but fio should work there almost out
+of the box. Since I don&#8217;t do test runs or even compiles on those platforms,
+your mileage may vary. Sending me patches for other platforms is greatly
+appreciated. There&#8217;s a lot of value in having the same test/benchmark tool
+available on all platforms.</p>
+<p>Note that POSIX aio is not enabled by default on AIX. Messages like these:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Symbol</span> <span class="n">resolution</span> <span class="n">failed</span> <span class="k">for</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">libc</span><span class="o">.</span><span class="n">a</span><span class="p">(</span><span class="n">posix_aio</span><span class="o">.</span><span class="n">o</span><span class="p">)</span> <span class="n">because</span><span class="p">:</span>
+    <span class="n">Symbol</span> <span class="n">_posix_kaio_rdwr</span> <span class="p">(</span><span class="n">number</span> <span class="mi">2</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">exported</span> <span class="kn">from</span> <span class="nn">dependent</span> <span class="n">module</span> <span class="o">/</span><span class="n">unix</span><span class="o">.</span>
+</pre></div>
+</div>
+<p>indicate one needs to enable POSIX aio. Run the following commands as root:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># lsdev -C -l posix_aio0</span>
+    <span class="n">posix_aio0</span> <span class="n">Defined</span>  <span class="n">Posix</span> <span class="n">Asynchronous</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span>
+<span class="c1"># cfgmgr -l posix_aio0</span>
+<span class="c1"># lsdev -C -l posix_aio0</span>
+    <span class="n">posix_aio0</span> <span class="n">Available</span>  <span class="n">Posix</span> <span class="n">Asynchronous</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span>
+</pre></div>
+</div>
+<p>POSIX aio should work now. To make the change permanent:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># chdev -l posix_aio0 -P -a autoconfig=&#39;available&#39;</span>
+    <span class="n">posix_aio0</span> <span class="n">changed</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="author">
+<h2>1.12. Author<a class="headerlink" href="#author" title="Permalink to this headline">¶</a></h2>
+<p>Fio was written by Jens Axboe &lt;<a class="reference external" href="mailto:axboe&#37;&#52;&#48;kernel&#46;dk">axboe<span>&#64;</span>kernel<span>&#46;</span>dk</a>&gt; to enable flexible testing
+of the Linux IO subsystem and schedulers. He got tired of writing
+specific test applications to simulate a given workload, and found that
+the existing io benchmark/test tools out there weren&#8217;t flexible enough
+to do what he wanted.</p>
+<p>Jens Axboe &lt;<a class="reference external" href="mailto:axboe&#37;&#52;&#48;kernel&#46;dk">axboe<span>&#64;</span>kernel<span>&#46;</span>dk</a>&gt; 20060905</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1. README</a><ul>
+<li><a class="reference internal" href="#fio">1.1. fio</a></li>
+<li><a class="reference internal" href="#source">1.2. Source</a></li>
+<li><a class="reference internal" href="#binary-packages">1.3. Binary packages</a></li>
+<li><a class="reference internal" href="#mailing-list">1.4. Mailing list</a></li>
+<li><a class="reference internal" href="#reporting-a-bug">1.5. Reporting a bug</a></li>
+<li><a class="reference internal" href="#building">1.6. Building</a></li>
+<li><a class="reference internal" href="#windows">1.7. Windows</a></li>
+<li><a class="reference internal" href="#command-line">1.8. Command line</a></li>
+<li><a class="reference internal" href="#job-file">1.9. Job file</a></li>
+<li><a class="reference internal" href="#client-server">1.10. Client/server</a></li>
+<li><a class="reference internal" href="#platforms">1.11. Platforms</a></li>
+<li><a class="reference internal" href="#author">1.12. Author</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to FIO&#8217;s documentation!</a></li>
+      <li>Next: <a href="HOWTO.html" title="next chapter">2. HOWTO</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/README.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Jens Axboe <axboe@kernel.dk>.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.9</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+      |
+      <a href="_sources/README.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

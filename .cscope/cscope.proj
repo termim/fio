@@ -1,0 +1,26 @@
+Version=2
+
+[AutoCompletion]
+Delay=500
+Enabled=true
+MaxEntries=100
+MinChars=3
+
+[Project]
+AutoRebuildTime=10
+CtagsCommand=
+FileTypes=*.c *.h
+InvIndex=true
+Kernel=false
+Name=fio
+NoCompress=false
+RootPath=/home/terekhov/tmp/fio/fio
+SlowPathDef=false
+TabWidth=0
+
+[Session]
+Bookmarks=
+CallTreeFiles=
+LastOpenFile=/home/terekhov/tmp/fio/fio/gclient.c
+OpenFiles=/home/terekhov/tmp/fio/fio/client.c:45:1,/home/terekhov/tmp/fio/fio/server.c:1:1,/home/terekhov/tmp/fio/fio/server.h:1:1,/home/terekhov/tmp/fio/fio/client.h:140:19,/home/terekhov/tmp/fio/fio/init.c:2077:1,/home/terekhov/tmp/fio/fio/gclient.c:1400:1
+QueryFiles=
