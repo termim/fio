@@ -1,0 +1,6 @@
+License
+=======
+
+.. literalinclude:: ../MORAL-LICENSE
+
+.. literalinclude:: ../COPYING

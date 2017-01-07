@@ -1,0 +1,184 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>3. GFIO TODO &mdash; fio 1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="fio 1 documentation" href="index.html" />
+    <link rel="next" title="6. Moral License" href="moral-license.html" />
+    <link rel="prev" title="2. HOWTO" href="HOWTO.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="gfio-todo">
+<h1>3. GFIO TODO<a class="headerlink" href="#gfio-todo" title="Permalink to this headline">¶</a></h1>
+<p>In no particular order:</p>
+<ul>
+<li><p class="first">Ability to save job files. Probably in an extended gfio format,
+so we can include options/settings outside of a fio job file.</p>
+</li>
+<li><p class="first">End view improvements:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Cleanup the layout</li>
+<li>Add ability to save the results</li>
+<li>Add ability to load end-results as well</li>
+<li>Add ability to request graphs of whatever graphing options
+the fio job included.</li>
+<li>Add ability to graph completion latencies, percentiles, etc.</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p class="first">Add ability to edit job options:</p>
+<blockquote>
+<div><ul class="simple">
+<li>We need an options view after sending a job, that allows us to
+visually see what was parsed, make changes, resubmit.</li>
+<li>Job options are already converted across the network and
+are available in gfio_client-&gt;o for view/edit. We&#8217;ll need
+a FIO_NET_CMD_UPDATE_OPTIONS command to send them back,
+and backend support for updating an existing set of options.</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p class="first">Add support for printing end results, graphs, etc.</p>
+</li>
+<li><p class="first">Improve the auto-start backend functionality, it&#8217;s quite buggy.</p>
+</li>
+<li><p class="first">Ensure that it works on OSX and Windows. We&#8217;ll need a bit of porting
+work there.</p>
+</li>
+<li><p class="first">Persistent store of prefences set. This will need a per-OS bit as well,
+using gfonf on Linux, registry on Windows, ?? on OSX.</p>
+</li>
+<li><p class="first">Ensure that local errors go to our log, instead of being displayed on
+the console.</p>
+</li>
+<li><p class="first">Ensure that the whole connect/send/start button logic is sane. Right
+now it works when you perform the right sequence, but if you connect
+and disconnect, things can get confused. We&#8217;ll need to improve how
+we store and send job files. Right now they are in ge-&gt;job_files[]
+and are always emptied on send. Keep them around?</p>
+</li>
+<li><p class="first">Commit rate display is not enabled.</p>
+</li>
+<li><p class="first">Group status reporting is not enabled.</p>
+</li>
+<li><p class="first">Split gfio.c a bit. Add gfio/ sub directory, and split it into
+files based on functionality. It&#8217;s already ~3000 lines long.</p>
+</li>
+<li><p class="first">Attempt to ensure that we work with gtk 2.10 and newer. Right
+now the required version is ~2.18 (not quite known).</p>
+</li>
+</ul>
+</div>
+<div class="section" id="server-todo">
+<h1>4. Server TODO<a class="headerlink" href="#server-todo" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li>Collate ETA output from multiple connections into 1</li>
+<li>If group_reporting is set, collate final output from multiple connections</li>
+</ul>
+</div>
+<div class="section" id="steady-state-todo">
+<h1>5. Steady State TODO<a class="headerlink" href="#steady-state-todo" title="Permalink to this headline">¶</a></h1>
+<p>Known issues/TODO (for steady-state)</p>
+<ul class="simple">
+<li>Allow user to specify the frequency of measurements</li>
+<li>Better documentation for output</li>
+<li>Report read, write, trim IOPS/BW separately</li>
+<li>Semantics for the ring buffer ss-&gt;head are confusing. ss-&gt;head points
+to the beginning of the buffer up through the point where the buffer
+is filled for the first time. afterwards, when a new element is added,
+ss-&gt;head is advanced to point to the second element in the buffer. if
+steady state is attained upon adding a new element, ss-&gt;head is not
+advanced so it actually does point to the head of the buffer.</li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">3. GFIO TODO</a></li>
+<li><a class="reference internal" href="#server-todo">4. Server TODO</a></li>
+<li><a class="reference internal" href="#steady-state-todo">5. Steady State TODO</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="HOWTO.html" title="previous chapter">2. HOWTO</a></li>
+      <li>Next: <a href="moral-license.html" title="next chapter">6. Moral License</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/TODO.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Jens Axboe <axboe@kernel.dk>.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+      |
+      <a href="_sources/TODO.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

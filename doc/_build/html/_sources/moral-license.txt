@@ -1,0 +1,4 @@
+Moral License
+=============
+
+.. include:: ../MORAL-LICENSE

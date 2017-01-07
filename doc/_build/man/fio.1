@@ -1,0 +1,4179 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "FIO" "1" "January 07, 2017" "1" "fio"
+.SH NAME
+fio \- flexible I/O tester
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH OVERVIEW AND HISTORY
+.sp
+fio was originally written to save me the hassle of writing special test
+case programs when I wanted to test a specific workload, either for
+performance reasons or to find/reproduce a bug. The process of writing
+such a test app can be tiresome, especially if you have to do it often.
+Hence I needed a tool that would be able to simulate a given I/O workload
+without resorting to writing a tailored test case again and again.
+.sp
+A test work load is difficult to define, though. There can be any number
+of processes or threads involved, and they can each be using their own
+way of generating I/O. You could have someone dirtying large amounts of
+memory in an memory mapped file, or maybe several threads issuing
+reads using asynchronous I/O. fio needed to be flexible enough to
+simulate both of these cases, and many more.
+.SH HOW FIO WORKS
+.sp
+The first step in getting fio to simulate a desired I/O workload, is
+writing a job file describing that specific setup. A job file may contain
+any number of threads and/or files \- the typical contents of the job file
+is a \fIglobal\fP section defining shared parameters, and one or more job
+sections describing the jobs involved. When run, fio parses this file
+and sets everything up as described. If we break down a job from top to
+bottom, it contains the following basic parameters:
+.INDENT 0.0
+.TP
+.B IO type
+Defines the I/O pattern issued to the file(s).
+We may only be reading sequentially from this
+file(s), or we may be writing randomly. Or even
+mixing reads and writes, sequentially or randomly.
+.TP
+.B Block size
+In how large chunks are we issuing I/O? This may be
+a single value, or it may describe a range of
+block sizes.
+.TP
+.B IO size
+How much data are we going to be reading/writing.
+.TP
+.B IO engine
+How do we issue I/O? We could be memory mapping the
+file, we could be using regular read/write, we
+could be using splice, async I/O, or even SG
+(SCSI generic sg).
+.TP
+.B IO depth
+If the I/O engine is async, how large a queuing
+depth do we want to maintain?
+.TP
+.B IO type
+Should we be doing buffered I/O, or direct/raw I/O?
+.TP
+.B Num files
+How many files are we spreading the workload over.
+.TP
+.B Num threads
+How many threads or processes should we spread
+this workload over.
+.UNINDENT
+.sp
+The above are the basic parameters defined for a workload, in addition
+there\(aqs a multitude of parameters that modify other aspects of how this
+job behaves.
+.SH RUNNING FIO
+.sp
+See the README file for command line parameters, there are only a few
+of them.
+.sp
+Running fio is normally the easiest part \- you just give it the job file
+(or job files) as parameters:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fio job_file
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+and it will start doing what the job_file tells it to do. You can give
+more than one job file on the command line, fio will serialize the running
+of those files. Internally that is the same as using the \fI\%stonewall\fP
+parameter described in the parameter section.
+.sp
+If the job file contains only one job, you may as well just give the
+parameters on the command line. The command line parameters are identical
+to the job parameters, with a few extra that control global parameters
+(see README). For example, for the job file parameter \fIiodepth=2\fP, the
+mirror command line option would be \fI\-\-iodepth 2\fP or \fI\-\-iodepth=2\fP\&. You can
+also use the command line for giving more than one job entry. For each
+\fI\-\-name\fP option that fio sees, it will start a new job with that name.
+Command line entries following a \fI\-\-name\fP entry will apply to that job,
+until there are no more entries or a new \fI\-\-name\fP entry is seen. This is
+similar to the job file options, where each option applies to the current
+job until a new [] job entry is seen.
+.sp
+fio does not need to run as root, except if the files or devices specified
+in the job section requires that. Some other options may also be restricted,
+such as memory locking, I/O scheduler switching, and decreasing the nice value.
+.sp
+If \fIjobfile\fP is specified as \fI\-\fP, the job file will be read from
+standard input.
+.SH JOB FILE FORMAT
+.sp
+As previously described, fio accepts one or more job files describing
+what it is supposed to do. The job file format is the classic ini file,
+where the names enclosed in [] brackets define the job name. You are free
+to use any ascii name you want, except \fIglobal\fP which has special meaning.
+Following the job name is a sequence of zero or more parameters, one per line,
+that define the behavior of the job. If the first character in a line is a \(aq;\(aq
+or a \(aq#\(aq, the entire line is discarded as a comment.
+.sp
+A \fIglobal\fP section sets defaults for the jobs described in that file. A job
+may override a \fIglobal\fP section parameter, and a job file may even have
+several \fIglobal\fP sections if so desired. A job is only affected by a \fIglobal\fP
+section residing above it.
+.sp
+So let\(aqs look at a really simple job file that defines two processes, each
+randomly reading from a 128MiB file:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+; \-\- start job file \-\-
+[global]
+rw=randread
+size=128m
+
+[job1]
+
+[job2]
+
+; \-\- end job file \-\-
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+As you can see, the job file sections themselves are empty as all the
+described parameters are shared. As no \fIfilename=\fP option is given, fio
+makes up a \fIfilename\fP for each of the jobs as it sees fit. On the command
+line, this job would look as follows:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fio \-\-name=global \-\-rw=randread \-\-size=128m \-\-name=job1 \-\-name=job2
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Let\(aqs look at an example that has a number of processes writing randomly
+to files:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+; \-\- start job file \-\-
+[random\-writers]
+ioengine=libaio
+iodepth=4
+rw=randwrite
+bs=32k
+direct=0
+size=64m
+numjobs=4
+; \-\- end job file \-\-
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Here we have no \fIglobal\fP section, as we only have one job defined anyway.
+We want to use async I/O here, with a depth of 4 for each file. We also
+increased the buffer size used to 32KiB and define numjobs to 4 to
+fork 4 identical jobs. The result is 4 processes each randomly writing
+to their own 64MiB file. Instead of using the above job file, you could
+have given the parameters on the command line. For this case, you would
+specify:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fio \-\-name=random\-writers \-\-ioengine=libaio \-\-iodepth=4 \-\-rw=randwrite \-\-bs=32k \-\-direct=0 \-\-size=64m \-\-numjobs=4
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+When fio is utilized as a basis of any reasonably large test suite, it might be
+desirable to share a set of standardized settings across multiple job files.
+Instead of copy/pasting such settings, any section may pull in an external
+\fBfilename.fio\fP file with \fIinclude filename\fP directive, as in the following example:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+; \-\- start job file including.fio \-\-
+[global]
+filename=/tmp/test
+filesize=1m
+include glob\-include.fio
+
+[test]
+rw=randread
+bs=4k
+time_based=1
+runtime=10
+include test\-include.fio
+; \-\- end job file including.fio \-\-
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+; \-\- start job file glob\-include.fio \-\-
+thread=1
+group_reporting=1
+; \-\- end job file glob\-include.fio \-\-
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+; \-\- start job file test\-include.fio \-\-
+ioengine=libaio
+iodepth=4
+; \-\- end job file test\-include.fio \-\-
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Settings pulled into a section apply to that section only (except \fIglobal\fP
+section). Include directives may be nested in that any included file may
+contain further include directive(s). Include files may not contain []
+sections.
+.SS Environment variables
+.sp
+fio also supports environment variable expansion in job files. Any
+sub\-string of the form "${VARNAME}" as part of an option value (in other
+words, on the right of the \(aq=\(aq), will be expanded to the value of the
+environment variable called VARNAME.  If no such environment variable
+is defined, or VARNAME is the empty string, the empty string will be
+substituted.
+.sp
+As an example, let\(aqs look at a sample fio invocation and job file:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ SIZE=64m NUMJOBS=4 fio jobfile.fio
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+; \-\- start job file \-\-
+[random\-writers]
+rw=randwrite
+size=${SIZE}
+numjobs=${NUMJOBS}
+; \-\- end job file \-\-
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+This will expand to the following equivalent job file at runtime:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+; \-\- start job file \-\-
+[random\-writers]
+rw=randwrite
+size=64m
+numjobs=4
+; \-\- end job file \-\-
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+fio ships with a few example job files, you can also look there for
+inspiration.
+.SS Reserved keywords
+.sp
+Additionally, fio has a set of reserved keywords that will be replaced
+internally with the appropriate value. Those keywords are:
+.INDENT 0.0
+.IP \(bu 2
+\fB$pagesize\fP \-       The architecture page size of the running system
+.IP \(bu 2
+\fB$mb_memory\fP \-      Megabytes of total memory in the system
+.IP \(bu 2
+\fB$ncpus\fP \-          Number of online available CPUs
+.UNINDENT
+.sp
+These can be used on the command line or in the job file, and will be
+automatically substituted with the current system values when the job
+is run. Simple math is also supported on these keywords, so you can
+perform actions like:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+size=8*$mb_memory
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+and get that properly expanded to 8 times the size of memory in the
+machine.
+.SH JOB FILE PARAMETERS
+.sp
+This section describes in details each parameter associated with a job.
+Some parameters take an option of a given type, such as an integer or
+a string. Anywhere a numeric value is required, an arithmetic expression
+may be used, provided it is surrounded by parentheses. Supported operators
+are:
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+addition (+)
+.IP \(bu 2
+subtraction (\-)
+.IP \(bu 2
+multiplication (*)
+.IP \(bu 2
+division (/)
+.IP \(bu 2
+modulus (%)
+.IP \(bu 2
+exponentiation (^)
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+For time values in expressions, units are microseconds by default. This is
+different than for time values not in expressions (not enclosed in
+parentheses). The following types are used:
+.SS Parameter types
+.INDENT 0.0
+.TP
+\fBstr\fP
+String. This is a sequence of alpha characters.
+.TP
+\fBtime\fP
+Integer with possible time suffix. In seconds unless otherwise
+specified, use eg 10m for 10 minutes. Accepts s/m/h for seconds,
+minutes, and hours, and accepts \(aqms\(aq (or \(aqmsec\(aq) for milliseconds,
+and \(aqus\(aq (or \(aqusec\(aq) for microseconds.
+.UNINDENT
+.INDENT 0.0
+.TP
+\fBint\fP
+Integer. A whole number value, which may contain an integer prefix
+and an integer suffix:
+.sp
+[\fIinteger prefix\fP]**number**[\fIinteger suffix\fP]
+.sp
+The optional \fIinteger prefix\fP specifies the number\(aqs base. The default
+is decimal. \fI0x\fP specifies hexadecimal.
+.sp
+The optional \fIinteger suffix\fP specifies the number\(aqs units, and includes
+an optional unit prefix and an optional unit.  For quantities of data,
+the default unit is bytes. For quantities of time, the default unit
+is seconds.
+.sp
+With \fI\%kb_base\fP =1000, fio follows international standards for unit prefixes.
+To specify power\-of\-10 decimal values defined in the International
+System of Units (SI):
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+\fIKi\fP \-\- means kilo (K) or 1000
+.IP \(bu 2
+\fIMi\fP \-\- means mega (M) or 1000**2
+.IP \(bu 2
+\fIGi\fP \-\- means giga (G) or 1000**3
+.IP \(bu 2
+\fITi\fP \-\- means tera (T) or 1000**4
+.IP \(bu 2
+\fIPi\fP \-\- means peta (P) or 1000**5
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+To specify power\-of\-2 binary values defined in IEC 80000\-13:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+\fIk\fP \-\- means kibi (Ki) or 1024
+.IP \(bu 2
+\fIM\fP \-\- means mebi (Mi) or 1024**2
+.IP \(bu 2
+\fIG\fP \-\- means gibi (Gi) or 1024**3
+.IP \(bu 2
+\fIT\fP \-\- means tebi (Ti) or 1024**4
+.IP \(bu 2
+\fIP\fP \-\- means pebi (Pi) or 1024**5
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+With \fI\%kb_base\fP =1024 (the default), the unit prefixes are opposite from
+those specified in the SI and IEC 80000\-13 standards to provide
+compatibility with old scripts.  For example, 4k means 4096.
+.sp
+For quantities of data, an optional unit of \(aqB\(aq may be included
+(e.g.,  \(aqkB\(aq is the same as \(aqk\(aq).
+.sp
+The \fIinteger suffix\fP is not case sensitive (e.g., m/mi mean mebi/mega,
+not milli). \(aqb\(aq and \(aqB\(aq both mean byte, not bit.
+.sp
+Examples with \fI\%kb_base\fP =1000:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+\fI4 KiB\fP: 4096, 4096b, 4096B, 4ki, 4kib, 4kiB, 4Ki, 4KiB
+.IP \(bu 2
+\fI1 MiB\fP: 1048576, 1mi, 1024ki
+.IP \(bu 2
+\fI1 MB\fP: 1000000, 1m, 1000k
+.IP \(bu 2
+\fI1 TiB\fP: 1073741824, 1ti, 1024mi, 1048576ki
+.IP \(bu 2
+\fI1 TB\fP: 1000000000, 1t, 1000m, 1000000k
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+Examples with \fI\%kb_base\fP =1024 (default):
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+\fI4 KiB\fP: 4096, 4096b, 4096B, 4k, 4kb, 4kB, 4K, 4KB
+.IP \(bu 2
+\fI1 MiB\fP: 1048576, 1m, 1024k
+.IP \(bu 2
+\fI1 MB\fP: 1000000, 1mi, 1000ki
+.IP \(bu 2
+\fI1 TiB\fP: 1073741824, 1t, 1024m, 1048576k
+.IP \(bu 2
+\fI1 TB\fP: 1000000000, 1ti, 1000mi, 1000000ki
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+To specify times (units are not case sensitive):
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+\fID\fP \-\- means days
+.IP \(bu 2
+\fIH\fP \-\- means hours
+.IP \(bu 2
+\fIM\fP \-\- mean minutes
+.IP \(bu 2
+\fIs\fP \-\- or sec means seconds (default)
+.IP \(bu 2
+\fIms\fP \-\- or \fImsec\fP means milliseconds
+.IP \(bu 2
+\fIus\fP \-\- or \fIusec\fP means microseconds
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+If the option accepts an upper and lower range, use a colon \(aq:\(aq or
+minus \(aq\-\(aq to separate such values. See \fI\%irange\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+\fBbool\fP
+Boolean. Usually parsed as an integer, however only defined for
+true and false (1 and 0).
+.UNINDENT
+.INDENT 0.0
+.TP
+\fBirange\fP
+Integer range with suffix. Allows value range to be given, such
+as 1024\-4096. A colon may also be used as the separator, eg
+1k:4k. If the option allows two sets of ranges, they can be
+specified with a \(aq,\(aq or \(aq/\(aq delimiter: 1k\-4k/8k\-32k. Also see
+\fI\%int\fP\&.
+.TP
+\fBfloat_list\fP
+A list of floating point numbers, separated by a \(aq:\(aq character.
+.UNINDENT
+.SS Detailed list of parameters
+.sp
+With the above in mind, here follows the complete list of fio job
+parameters.
+.INDENT 0.0
+.TP
+.B name=str
+ASCII name of the job. This may be used to override the
+name printed by fio for this job. Otherwise the job
+name is used. On the command line this parameter has the
+special purpose of also signaling the start of a new
+job.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B wait_for=str
+Specifies the name of the already defined job to wait
+for. Single waitee name only may be specified. If set, the job
+won\(aqt be started until all workers of the waitee job are done.
+.sp
+Wait_for operates on the job name basis, so there are a few
+limitations. First, the waitee must be defined prior to the
+waiter job (meaning no forward references). Second, if a job
+is being referenced as a waitee, it must have a unique name
+(no duplicate waitees).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B description=str
+Text description of the job. Doesn\(aqt do anything except
+dump this text description when this job is run. It\(aqs
+not parsed.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B directory=str
+Prefix filenames with this directory. Used to place files
+in a different location than "./".
+You can specify a number of directories by separating the names with a \(aq:\(aq
+character. These directories will be assigned equally distributed to job
+clones creates with \fI\%numjobs\fP as long as they are using generated
+filenames. If specific \fIfilename(s)\fP are set fio will use the first listed
+directory, and thereby matching the  \fIfilename\fP semantic which generates a
+file each clone if not specified, but let all clones use the same if set.
+.sp
+See the \fI\%filename\fP option for escaping certain characters.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B filename=str
+Fio normally makes up a \fIfilename\fP based on the job name,
+thread number, and file number. If you want to share
+files between threads in a job or several jobs, specify
+a \fIfilename\fP for each of them to override the default.
+If the ioengine is file based, you can specify a number of
+files by separating the names with a \(aq:\(aq colon. So if you
+wanted a job to open \fB/dev/sda\fP and \fB/dev/sdb\fP as the two working
+files, you would use \fI\%filename\fP = \fB/dev/sda:/dev/sdb\fP\&. On Windows,
+disk devices are accessed as \fB\e.PhysicalDrive0\fP for the first
+device, \fB\e.PhysicalDrive1\fP for the second etc. Note: Windows
+and FreeBSD prevent write access to areas of the disk
+containing in\-use data (e.g. filesystems).
+If the wanted \fIfilename\fP does need to include a colon, then
+escape that with a \(aq\(aq character. For instance, if the \fIfilename\fP
+is \fB/dev/dsk/foo@3,0:c\fP, then you would use
+\fI\%filename\fP = \fB/dev/dsk/foo@3,0:c\fP\&. \(aq\-\(aq is a reserved name, meaning
+stdin or stdout. Which of the two depends on the read/write
+direction set.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B filename_format=str
+If sharing multiple files between jobs, it is usually necessary
+to  have fio generate the exact names that you want. By default,
+fio will name a file based on the default file format
+specification of jobname.jobnumber.filenumber. With this
+option, that can be customized. Fio will recognize and replace
+the following keywords in this string:
+.INDENT 7.0
+.TP
+.B \fB$jobname\fP
+The name of the worker thread or process.
+.TP
+.B \fB$jobnum\fP
+The incremental number of the worker thread or process.
+.TP
+.B \fB$filenum\fP
+The incremental number of the file for that worker thread or process.
+.UNINDENT
+.sp
+To have dependent jobs share a set of files, this option can
+be set to have fio generate filenames that are shared between
+the two. For instance, if \fItestfiles.$filenum\fP is specified,
+file number 4 for any job will be named \fItestfiles.4\fP\&. The
+default of \fI$jobname.$jobnum.$filenum\fP will be used if
+no other format specifier is given.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B unique_filename=:ref:\(gabool <bool>\(ga
+To avoid collisions between networked clients, fio
+defaults to prefixing any generated filenames (with a directory
+specified) with the source of the client connecting. To disable
+this behavior, set this option to 0.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B opendir=str
+Tell fio to recursively add any file it can find in this
+directory and down the file system tree.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B lockfile=str
+Fio defaults to not locking any files before it does
+I/O to them. If a file or file descriptor is shared, fio
+can serialize I/O to that file to make the end result
+consistent. This is usual for emulating real workloads that
+share files. The lock modes are:
+.INDENT 7.0
+.TP
+.B \fBnone\fP
+No locking. The default.
+.TP
+.B \fBexclusive\fP
+Only one thread/process may do I/O, excluding all others.
+.TP
+.B \fBreadwrite\fP
+Read\-write locking on the file. Many readers may access the file at the
+same time, but writes get exclusive access.
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B readwrite=str
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rw=str
+Type of I/O pattern. Accepted values are:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBread\fP
+Sequential reads
+.TP
+.B \fBwrite\fP
+Sequential writes
+.TP
+.B \fBtrim\fP
+Sequential trims (Linux block devices only).
+.TP
+.B \fBrandwrite\fP
+Random writes
+.TP
+.B \fBrandread\fP
+Random reads
+.TP
+.B \fBrandtrim\fP
+Random trims (Linux block devices only).
+.TP
+.B \fBrw,readwrite\fP
+Sequential mixed reads and writes
+.TP
+.B \fBrandrw\fP
+Random mixed reads and writes
+.TP
+.B \fBtrimwrite\fP
+Sequential trim+write sequences. Blocks will be trimmed first, then
+the same blocks will be written to.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+Fio defaults to read if the option is not specified.
+For the mixed I/O types, the default is to split them 50/50.
+For certain types of I/O the result may still be skewed a bit,
+since the speed may be different. It is possible to specify
+a number of I/O\(aqs to do before getting a new offset, this is
+done by appending a \(aq:<nr>\(aq to the end of the string given.
+For a random read, it would look like \(aqrw=randread:8\(aq for
+passing in an offset modifier with a value of 8. If the
+suffix is used with a sequential I/O pattern, then the value
+specified will be added to the generated offset for each I/O.
+For instance, using rw=write:4k will skip 4k for every
+write. It turns sequential I/O into sequential I/O with holes.
+See the \fI\%rw_sequencer\fP option.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rw_sequencer=str
+If an offset modifier is given by appending a number to
+the \fIrw=<str>\fP line, then this option controls how that
+number modifies the I/O offset being generated. Accepted
+values are:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBsequential\fP
+Generate sequential offset
+.TP
+.B \fBidentical\fP
+Generate the same offset
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBsequential\fP is only useful for random I/O, where fio would
+normally generate a new random offset for every I/O. If you
+append eg 8 to randread, you would get a new random offset for
+every 8 I/O\(aqs. The result would be a seek for only every 8
+I/O\(aqs, instead of for every I/O. Use rw=randread:8 to specify
+that. As sequential I/O is already sequential, setting
+\fBsequential\fP for that would not result in any differences.
+\fBidentical\fP behaves in a similar fashion, except it sends
+the same offset 8 number of times before generating a new
+offset.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B kb_base=int
+Select the interpretation of unit prefixes in input parameters.
+.INDENT 7.0
+.IP \(bu 2
+\fI1000\fP = Inputs comply with IEC 80000\-13 and the International
+System of Units (SI). Use:
+.INDENT 2.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+power\-of\-2 values with IEC prefixes (e.g., KiB)
+.IP \(bu 2
+power\-of\-10 values with SI prefixes (e.g., kB)
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.IP \(bu 2
+\fI1024\fP = Compatibility mode (default).  To avoid breaking old scripts:
+.INDENT 2.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+power\-of\-2 values with SI prefixes
+.IP \(bu 2
+power\-of\-10 values with IEC prefixes
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+See \fI\%bs\fP for more details on input parameters.
+.sp
+Outputs always use correct prefixes.  Most outputs include
+both side\-by\-side, like:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+bw=2383.3kB/s (2327.4KiB/s)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+If only one value is reported, then kb_base selects the
+one to use:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+\fI1000\fP = SI prefixes
+.IP \(bu 2
+\fI1024\fP = IEC prefixes
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B unified_rw_reporting=bool
+Fio normally reports statistics on a per
+data direction basis, meaning that read, write, and trim are
+accounted and reported separately. If this option is set,
+the fio will sum the results and report them as "mixed"
+instead.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B randrepeat=bool
+For random I/O workloads, seed the generator in a predictable
+way so that results are repeatable across repetitions.
+Defaults: true.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B allrandrepeat=bool
+Seed all random number generators in a predictable way so results are
+repeatable across runs.  Default: false.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B randseed=int
+Seed the random number generators based on this seed value, to
+be able to control what sequence of output is being generated.
+If not set, the random sequence depends on the \fI\%randrepeat\fP
+setting.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fallocate=str
+Whether pre\-allocation is performed when laying down files.
+Accepted values are:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBnone\fP
+Do not pre\-allocate space
+.TP
+.B \fBposix\fP
+Pre\-allocate via \fBposix_fallocate(3)\fP
+.TP
+.B \fBkeep\fP
+Pre\-allocate via \fBfallocate(2)\fP with
+FALLOC_FL_KEEP_SIZE set
+.TP
+.B \fB0\fP
+Backward\-compatible alias for \(aqnone\(aq
+.TP
+.B \fB1\fP
+Backward\-compatible alias for \(aqposix\(aq
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+May not be available on all supported platforms. \(aqkeep\(aq is only
+available on Linux.If using ZFS on Solaris this must be set to
+\(aqnone\(aq because ZFS doesn\(aqt support it. Default: \(aqposix\(aq.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fadvise_hint=bool
+By default, fio will use \fBposix_fadvise(2)\fP to advise the kernel
+on what I/O patterns it is likely to issue. Sometimes you
+want to test specific I/O patterns without telling the
+kernel about it, in which case you can disable this option.
+The following options are supported:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBsequential\fP
+Use \fBFADV_SEQUENTIAL\fP
+.TP
+.B \fBrandom\fP
+Use \fBFADV_RANDOM\fP
+.TP
+.B \fB1\fP
+Backwards\-compatible hint for basing
+the hint on the fio workload. Will use
+\fBFADV_SEQUENTIAL\fP for a sequential
+workload, and \fBFADV_RANDOM\fP for a random
+workload.
+.TP
+.B \fB0\fP
+Backwards\-compatible setting for not
+issing a fadvise hint.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fadvise_stream=int
+Use \fBposix_fadvise(2)\fP to advise the kernel what stream ID the
+writes issued belong to. Only supported on Linux. Note, this option
+may change going forward.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B size=int
+The total size of file I/O for this job. Fio will run until
+this many bytes has been transferred, unless runtime is
+limited by other options (such as \(aqruntime\(aq, for instance,
+or increased/decreased by \(aqio_size\(aq). Unless specific nrfiles
+and filesize options are given, fio will divide this size
+between the available files specified by the job. If not set,
+fio will use the full size of the given files or devices.
+If the files do not exist, size must be given. It is also
+possible to give size as a percentage between 1 and 100. If
+size=20% is given, fio will use 20% of the full size of the
+given files or devices.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B io_size=int
+.UNINDENT
+.INDENT 0.0
+.TP
+.B io_limit=int
+Normally fio operates within the region set by \(aqsize\(aq, which
+means that the \(aqsize\(aq option sets both the region and size of
+I/O to be performed. Sometimes that is not what you want. With
+this option, it is possible to define just the amount of I/O
+that fio should do. For instance, if \(aqsize\(aq is set to 20GiB and
+\(aqio_size\(aq is set to 5GiB, fio will perform I/O within the first
+20GiB but exit when 5GiB have been done. The opposite is also
+possible \- if \(aqsize\(aq is set to 20GiB, and \(aqio_size\(aq is set to
+40GiB, then fio will do 40GiB of I/O within the 0..20GiB region.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B filesize=int
+Individual file sizes. May be a range, in which case fio
+will select sizes for files at random within the given range
+and limited to \(aqsize\(aq in total (if that is given). If not
+given, each created file is the same size.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B file_append=bool
+Perform I/O after the end of the file. Normally fio will
+operate within the size of a file. If this option is set, then
+fio will append to the file instead. This has identical
+behavior to setting \fI\%offset\fP to the size of a file.
+This option is ignored on non\-regular files.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fill_device=bool
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fill_fs=bool
+Sets size to something really large and waits for ENOSPC (no
+space left on device) as the terminating condition. Only makes
+sense with sequential write. For a read workload, the mount
+point will be filled first then I/O started on the result. This
+option doesn\(aqt make sense if operating on a raw device node,
+since the size of that is already known by the file system.
+Additionally, writing beyond end\-of\-device will not return
+ENOSPC there.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B blocksize=int[,int][,int]
+.UNINDENT
+.INDENT 0.0
+.TP
+.B bs=int[,int][,int]
+The block size in bytes used for I/O units. Default: 4096.
+A single value applies to reads, writes, and trims.
+Comma\-separated values may be specified for reads, writes,
+and trims.  A value not terminated in a comma applies to
+subsequent types.
+.sp
+Examples:
+.INDENT 7.0
+.IP \(bu 2
+\fIbs=256k\fP    means 256k for reads, writes and trims
+.IP \(bu 2
+\fIbs=8k,32k\fP  means 8k for reads, 32k for writes and trims
+.IP \(bu 2
+\fIbs=8k,32k,\fP means 8k for reads, 32k for writes, and default for trims
+.IP \(bu 2
+\fIbs=,8k\fP     means default for reads, 8k for writes and trims
+.IP \(bu 2
+\fIbs=,8k,\fP    means default for reads, 8k for writes, and default for writes
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B blocksize_range=irange[,irange][,irange]
+.UNINDENT
+.INDENT 0.0
+.TP
+.B bsrange=irange[,irange][,irange]
+A range of block sizes in bytes for I/O units.
+The issued I/O unit will always be a multiple of the minimum
+size, unless \fI\%blocksize_unaligned\fP is set.
+.sp
+Comma\-separated ranges may be specified for reads, writes,
+and trims as described in \fI\%blocksize\fP\&.
+.sp
+Example: \fIbsrange=1k\-4k,2k\-8k\fP
+.UNINDENT
+.INDENT 0.0
+.TP
+.B bssplit=str[,str][,str]
+Sometimes you want even finer grained control of the
+block sizes issued, not just an even split between them.
+This option allows you to weight various block sizes,
+so that you are able to define a specific amount of
+block sizes issued. The format for this option is:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+bssplit=blocksize/percentage:blocksize/percentage
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+for as many block sizes as needed. So if you want to define
+a workload that has 50% 64k blocks, 10% 4k blocks, and
+40% 32k blocks, you would write:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+bssplit=4k/10:64k/50:32k/40
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Ordering does not matter. If the percentage is left blank,
+fio will fill in the remaining values evenly. So a bssplit
+option like this one:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+bssplit=4k/50:1k/:32k/
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+would have 50% 4k ios, and 25% 1k and 32k ios. The percentages
+always add up to 100, if bssplit is given a range that adds
+up to more, it will error out.
+.sp
+Comma\-separated values may be specified for reads, writes,
+and trims as described in \fI\%blocksize\fP\&.
+.sp
+If you want a workload that has 50% 2k reads and 50% 4k reads,
+while having 90% 4k writes and 10% 8k writes, you would
+specify:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+bssplit=2k/50:4k/50,4k/90,8k/10
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B blocksize_unaligned
+.UNINDENT
+.INDENT 0.0
+.TP
+.B bs_unaligned
+If set, fio will issue I/O units with any size within
+\fI\%blocksize_range\fP, not just multiples of the minimum size.
+This typically won\(aqt work with direct I/O, as that normally
+requires sector alignment.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B bs_is_seq_rand
+If this option is set, fio will use the normal read,write
+blocksize settings as sequential,random blocksize settings
+instead. Any random read or write will use the WRITE blocksize
+settings, and any sequential read or write will use the READ
+blocksize settings.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B blockalign=int[,int][,int]
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ba=int[,int][,int]
+Boundary to which fio will align random I/O units.
+Default: \fI\%blocksize\fP\&.
+Minimum alignment is typically 512b for using direct I/O,
+though it usually depends on the hardware block size. This
+option is mutually exclusive with using a random map for
+files, so it will turn off that option.
+Comma\-separated values may be specified for reads, writes,
+and trims as described in \fI\%blocksize\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B zero_buffers
+If this option is given, fio will init the I/O buffers to
+all zeroes. The default is to fill them with random data.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B refill_buffers
+If this option is given, fio will refill the I/O buffers
+on every submit. The default is to only fill it at init
+time and reuse that data. Only makes sense if zero_buffers
+isn\(aqt specified, naturally. If data verification is enabled,
+\fIrefill_buffers\fP is also automatically enabled.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B scramble_buffers=bool
+If \fI\%refill_buffers\fP is too costly and the target is
+using data deduplication, then setting this option will
+slightly modify the I/O buffer contents to defeat normal
+de\-dupe attempts. This is not enough to defeat more clever
+block compression attempts, but it will stop naive dedupe of
+blocks. Default: true.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B buffer_compress_percentage=int
+If this is set, then fio will attempt to
+provide I/O buffer content (on WRITEs) that compress to
+the specified level. Fio does this by providing a mix of
+random data and a fixed pattern. The fixed pattern is either
+zeroes, or the pattern specified by \fI\%buffer_pattern\fP\&. If the
+pattern option is used, it might skew the compression ratio
+slightly. Note that this is per block size unit, for file/disk
+wide compression level that matches this setting, you\(aqll also
+want to set \fI\%refill_buffers\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B buffer_compress_chunk=int
+See \fI\%buffer_compress_percentage\fP\&. This
+setting allows fio to manage how big the ranges of random
+data and zeroed data is. Without this set, fio will
+provide \fI\%buffer_compress_percentage\fP of blocksize random
+data, followed by the remaining zeroed. With this set
+to some chunk size smaller than the block size, fio can
+alternate random and zeroed data throughout the I/O
+buffer.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B buffer_pattern=str
+If set, fio will fill the I/O buffers with this
+pattern. If not set, the contents of I/O buffers is defined by
+the other options related to buffer contents. The setting can
+be any pattern of bytes, and can be prefixed with 0x for hex
+values. It may also be a string, where the string must then
+be wrapped with "", e.g.:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+buffer_pattern="abcd"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+or:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+buffer_pattern=\-12
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+or:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+buffer_pattern=0xdeadface
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Also you can combine everything together in any order:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+buffer_pattern=0xdeadface"abcd"\-12
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B dedupe_percentage=int
+If set, fio will generate this percentage of
+identical buffers when writing. These buffers will be
+naturally dedupable. The contents of the buffers depend on
+what other buffer compression settings have been set. It\(aqs
+possible to have the individual buffers either fully
+compressible, or not at all. This option only controls the
+distribution of unique buffers.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B nrfiles=int
+Number of files to use for this job. Defaults to 1.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B openfiles=int
+Number of files to keep open at the same time. Defaults to
+the same as \fI\%nrfiles\fP, can be set smaller to limit the number
+simultaneous opens.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B file_service_type=str
+Defines how fio decides which file from a job to
+service next. The following types are defined:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBrandom\fP
+Just choose a file at random.
+.TP
+.B \fBroundrobin\fP
+Round robin over open files. This
+is the default.
+.TP
+.B \fBsequential\fP
+Finish one file before moving on to
+the next. Multiple files can still be
+open depending on \(aqopenfiles\(aq.
+.TP
+.B \fBzipf\fP
+Use a \fIzipfian\fP distribution to decide what file
+to access.
+.TP
+.B \fBpareto\fP
+Use a \fIpareto\fP distribution to decide what file
+to access.
+.TP
+.B \fBgauss\fP
+Use a \fIgaussian\fP (normal) distribution to decide
+what file to access.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+For \fIrandom\fP, \fIroundrobin\fP, and \fIsequential\fP, a postfix can be
+appended to tell fio how many I/Os to issue before switching
+to a new file. For example, specifying
+\fI\%file_service_type\fP = \fIrandom:8\fP would cause fio to issue 8 I/Os
+before selecting a new file at random. For the non\-uniform
+distributions, a floating point postfix can be given to
+influence how the distribution is skewed. See
+\fI\%random_distribution\fP for a description of how that would work.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ioengine=str
+Defines how the job issues I/O to the file. The following
+types are defined:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBsync\fP
+Basic \fBread(2)\fP or \fBwrite(2)\fP I/O. \fBlseek(2)\fP is
+used to position the I/O location.
+.TP
+.B \fBpsync\fP
+Basic \fBpread(2)\fP or \fBpwrite(2)\fP I/O.
+Default on all supported operating systems except for Windows.
+.TP
+.B \fBvsync\fP
+Basic \fBreadv(2)\fP or \fBwritev(2)\fP I/O.
+Will emulate queuing by coalescing adjacent IOs into a single
+submission.
+.TP
+.B \fBpvsync\fP
+Basic \fBpreadv(2)\fP or \fBpwritev(2)\fP I/O.
+.TP
+.B \fBpvsync2\fP
+Basic \fBpreadv2(2)\fP or \fBpwritev2(2)\fP I/O.
+.TP
+.B \fBlibaio\fP
+Linux native asynchronous I/O. Note that Linux
+may only support queued behaviour with
+non\-buffered I/O (set direct=1 or buffered=0).
+This engine defines engine specific options.
+.TP
+.B \fBposixaio\fP
+POSIX asynchronous I/O using \fBBaio_readfR|(3)\fP and
+\fBaio_write(3)\fP\&.
+.TP
+.B \fBsolarisaio\fP
+Solaris native asynchronous I/O.
+.TP
+.B \fBwindowsaio\fP
+Windows native asynchronous I/O.
+Default on Windows.
+.TP
+.B \fBmmap\fP
+File is memory mapped with \fBmmap(2)\fP and data copied
+to/from using \fBmemcpy(3)\fP\&.
+.TP
+.B \fBsplice\fP
+\fBsplice(2)\fP is used to transfer the data and
+\fBvmsplice(2)\fP to transfer data from user
+space to the kernel.
+.TP
+.B \fBsg\fP
+SCSI generic sg v3 I/O. May either be
+synchronous using the SG_IO ioctl, or if
+the target is an sg character device
+we use \fBread(2)\fP and \fBwrite(2)\fP for asynchronous
+I/O.
+.TP
+.B \fBnull\fP
+Doesn\(aqt transfer any data, just pretends to.
+This is mainly used to exercise fio
+itself and for debugging/testing purposes.
+.TP
+.B \fBnet\fP
+Transfer over the network to given \fBhost:port\fP\&.
+Depending on the \fI\%protocol\fP used, the \fI\%hostname\fP,
+\fI\%port\fP, \fI\%listen\fP and \fI\%filename\fP options are used to
+specify what sort of connection to make, while
+the \fI\%protocol\fP option determines which protocol
+will be used.
+This engine defines engine specific options.
+.TP
+.B \fBnetsplice\fP
+Like \fBnet\fP, but uses \fBsplice(2)\fP and
+\fBvmsplice(2)\fP to map data and send/receive.
+This engine defines engine specific options.
+.TP
+.B \fBcpuio\fP
+Doesn\(aqt transfer any data, but burns CPU
+cycles according to the \fI\%cpuload\fP and
+\fI\%cpuchunks\fP options. Setting \fI\%cpuload\fP =85
+will cause that job to do nothing but burn
+85% of the CPU. In case of SMP machines,
+use \fI\%numjobs\fP =<no_of_cpu> to get desired CPU
+usage, as the cpuload only loads a single
+CPU at the desired rate. A job never finishes
+unless there is at least one non\-cpuio job.
+.TP
+.B \fBguasi\fP
+The GUASI I/O engine is the Generic Userspace
+Asyncronous Syscall Interface approach
+to async I/O. See
+.sp
+\fI\%http://www.xmailserver.org/guasi\-lib.html\fP
+.sp
+for more info on GUASI.
+.TP
+.B \fBrdma\fP
+The RDMA I/O engine  supports  both  RDMA
+memory semantics (RDMA_WRITE/RDMA_READ) and
+channel semantics (Send/Recv) for the
+InfiniBand, RoCE and iWARP protocols.
+.TP
+.B \fBfalloc\fP
+I/O engine that does regular fallocate to
+simulate data transfer as fio ioengine.
+.sp
+DDIR_READ  does fallocate(,mode = FALLOC_FL_KEEP_SIZE,)
+.sp
+DDIR_WRITE does fallocate(,mode = 0)
+.sp
+DDIR_TRIM  does fallocate(,mode = FALLOC_FL_KEEP_SIZE|FALLOC_FL_PUNCH_HOLE)
+.TP
+.B \fBe4defrag\fP
+I/O engine that does regular EXT4_IOC_MOVE_EXT
+ioctls to simulate defragment activity in
+request to DDIR_WRITE event
+.TP
+.B \fBrbd\fP
+I/O engine supporting direct access to Ceph
+Rados Block Devices (RBD) via librbd without
+the need to use the kernel rbd driver. This
+ioengine defines engine specific options.
+.TP
+.B \fBgfapi\fP
+Using Glusterfs libgfapi sync interface to
+direct access to Glusterfs volumes without
+having to go through FUSE.
+This ioengine defines engine specific options..
+.TP
+.B \fBgfapi_async\fP
+Using Glusterfs libgfapi async interface
+to direct access to Glusterfs volumes without
+having to go through FUSE. This ioengine
+defines engine specific options.
+.TP
+.B \fBlibhdfs\fP
+Read and write through Hadoop (HDFS).
+This engine interprets offsets a little
+differently. In HDFS, files once created
+cannot be modified. So random writes are not
+possible. To imitate this, libhdfs engine
+creates bunch of small files, and engine will
+pick a file out of those files based on the
+offset generated by fio backend. Each jobs uses
+it\(aqs own connection to HDFS.
+.TP
+.B \fBmtd\fP
+Read, write and erase an MTD character device
+(e.g., \fB/dev/mtd0\fP). Discards are treated as
+erases. Depending on the underlying device
+type, the I/O may have to go in a certain
+pattern, e.g., on NAND, writing sequentially
+to erase blocks and discarding before
+overwriting. The writetrim mode works well
+for this constraint.
+.TP
+.B \fBpmemblk\fP
+Read and write through the NVML libpmemblk
+interface.
+.TP
+.B \fBdev\-dax\fP
+Read and write through a DAX device exposed
+from persistent memory.
+.TP
+.B \fBexternal\fP
+Prefix to specify loading an external
+I/O engine object file. Append the engine
+filename, eg \fBioengine=external:/tmp/foo.o\fP
+to load ioengine \fBfoo.o\fP in \fB/tmp\fP\&.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B iodepth=int
+This defines how many I/O units to keep in flight against
+the file. The default is 1 for each file defined in this
+job, can be overridden with a larger value for higher
+concurrency. Note that increasing iodepth beyond 1 will not
+affect synchronous ioengines (except for small degress when
+verify_async is in use). Even async engines may impose OS
+restrictions causing the desired depth not to be achieved.
+This may happen on Linux when using libaio and not setting
+direct=1, since buffered I/O is not async on that OS. Keep an
+eye on the I/O depth distribution in the fio output to verify
+that the achieved depth is as expected. Default: 1.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B iodepth_batch_submit=int
+.UNINDENT
+.INDENT 0.0
+.TP
+.B iodepth_batch=int
+This defines how many pieces of I/O to submit at once.
+It defaults to 1 which means that we submit each I/O
+as soon as it is available, but can be raised to submit
+bigger batches of I/O at the time. If it is set to 0 the iodepth
+value will be used.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B iodepth_batch_complete_min=int
+.UNINDENT
+.INDENT 0.0
+.TP
+.B iodepth_batch_complete=int
+This defines how many pieces of I/O to retrieve
+at once. It defaults to 1 which means that we\(aqll ask
+for a minimum of 1 I/O in the retrieval process from
+the kernel. The I/O retrieval will go on until we
+hit the limit set by \fI\%iodepth_low\fP\&. If this variable is
+set to 0, then fio will always check for completed
+events before queuing more I/O. This helps reduce
+I/O latency, at the cost of more retrieval system calls.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B iodepth_batch_complete_max=int
+This defines maximum pieces of I/O to
+retrieve at once. This variable should be used along with
+iodepth_batch_complete_min=int variable, specifying the range
+of min and max amount of I/O which should be retrieved. By default
+it is equal to iodepth_batch_complete_min value.
+.sp
+Example #1:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+iodepth_batch_complete_min=1
+iodepth_batch_complete_max=<iodepth>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+which means that we will retrieve at least 1 I/O and up to the
+whole submitted queue depth. If none of I/O has been completed
+yet, we will wait.
+.sp
+Example #2:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+iodepth_batch_complete_min=0
+iodepth_batch_complete_max=<iodepth>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+which means that we can retrieve up to the whole submitted
+queue depth, but if none of I/O has been completed yet, we will
+NOT wait and immediately exit the system call. In this example
+we simply do polling.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B iodepth_low=int
+The low water mark indicating when to start filling
+the queue again. Defaults to the same as iodepth, meaning
+that fio will attempt to keep the queue full at all times.
+If iodepth is set to eg 16 and iodepth_low is set to 4, then
+after fio has filled the queue of 16 requests, it will let
+the depth drain down to 4 before starting to fill it again.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B io_submit_mode=str
+This option controls how fio submits the I/O to
+the I/O engine. The default is \(aqinline\(aq, which means that the
+fio job threads submit and reap I/O directly. If set to
+\(aqoffload\(aq, the job threads will offload I/O submission to a
+dedicated pool of I/O threads. This requires some coordination
+and thus has a bit of extra overhead, especially for lower
+queue depth I/O where it can increase latencies. The benefit
+is that fio can manage submission rates independently of
+the device completion rates. This avoids skewed latency
+reporting if I/O gets back up on the device side (the
+coordinated omission problem).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B direct=bool
+If value is true, use non\-buffered I/O. This is usually
+O_DIRECT. Note that ZFS on Solaris doesn\(aqt support direct I/O.
+On Windows the synchronous ioengines don\(aqt support direct I/O.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B atomic=bool
+If value is true, attempt to use atomic direct I/O. Atomic
+writes are guaranteed to be stable once acknowledged by
+the operating system. Only Linux supports O_ATOMIC right
+now.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B buffered=bool
+If value is true, use buffered I/O. This is the opposite
+of the \(aqdirect\(aq option. Defaults to true.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B offset=int
+Start I/O at the given offset in the file. The data before
+the given offset will not be touched. This effectively
+caps the file size at real_size \- offset.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B offset_increment=int
+If this is provided, then the real offset becomes
+offset + offset_increment * thread_number, where the thread
+number is a counter that starts at 0 and is incremented for
+each sub\-job (i.e. when numjobs option is specified). This
+option is useful if there are several jobs which are intended
+to operate on a file in parallel disjoint segments, with
+even spacing between the starting points.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B number_ios=int
+Fio will normally perform IOs until it has exhausted the size
+of the region set by \fI\%size\fP, or if it exhaust the allocated
+time (or hits an error condition). With this setting, the
+range/size can be set independently of the number of IOs to
+perform. When fio reaches this number, it will exit normally
+and report status. Note that this does not extend the amount
+of I/O that will be done, it will only stop fio if this
+condition is met before other end\-of\-job criteria.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fsync=int
+If writing to a file, issue a sync of the dirty data
+for every number of blocks given. For example, if you give
+32 as a parameter, fio will sync the file for every 32
+writes issued. If fio is using non\-buffered I/O, we may
+not sync the file. The exception is the sg I/O engine, which
+synchronizes the disk cache anyway.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fdatasync=int
+Like \fI\%fsync\fP but uses \fBfdatasync(2)\fP to only sync data and not
+metadata blocks.
+In FreeBSD and Windows there is no \fBfdatasync(22)\fP, this falls back
+to using \fBfsync(2)\fP
+.UNINDENT
+.INDENT 0.0
+.TP
+.B sync_file_range=str:val
+Use \fBsync_file_range(2)\fP for every \(aqval\(aq number of
+write operations. Fio will track range of writes that
+have happened since the last \fBsync_file_range(2)\fP call. \(aqstr\(aq
+can currently be one or more of:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+* wait_before   SYNC_FILE_RANGE_WAIT_BEFORE
+* write SYNC_FILE_RANGE_WRITE
+* wait_after    SYNC_FILE_RANGE_WAIT_AFTER
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+So if you do \fBsync_file_range=wait_before,write:8\fP, fio would
+use \fBSYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE\fP for
+every 8 writes. Also see the \fBsync_file_range(2)\fP man page.
+This option is Linux specific.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B overwrite=bool
+If true, writes to a file will always overwrite existing
+data. If the file doesn\(aqt already exist, it will be
+created before the write phase begins. If the file exists
+and is large enough for the specified write phase, nothing
+will be done.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B end_fsync=bool
+If true, fsync file contents when a write stage has completed.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fsync_on_close=bool
+If true, fio will \fBfsync(2)\fP a dirty file on close.
+This differs from end_fsync in that it will happen on every
+file close, not just at the end of the job.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rwmixread=int
+How large a percentage of the mix should be reads.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rwmixwrite=int
+How large a percentage of the mix should be writes. If both
+rwmixread and rwmixwrite is given and the values do not add
+up to 100%, the latter of the two will be used to override
+the first. This may interfere with a given rate setting,
+if fio is asked to limit reads or writes to a certain rate.
+If that is the case, then the distribution may be skewed.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B random_distribution=str:float[,str:float][,str:float]
+By default, fio will use a completely uniform
+random distribution when asked to perform random I/O. Sometimes
+it is useful to skew the distribution in specific ways,
+ensuring that some parts of the data is more hot than others.
+fio includes the following distribution models:
+.INDENT 7.0
+.INDENT 3.5
+\fBrandom\fP \-\- Uniform random distribution
+.sp
+\fBzipf\fP \-\- Zipf distribution
+.sp
+\fBpareto\fP \-\- Pareto distribution
+.sp
+\fBgauss\fP \-\- Normal (gaussian) distribution
+.sp
+\fBzoned\fP \-\- Zoned random distribution
+.UNINDENT
+.UNINDENT
+.sp
+When using a zipf or pareto distribution, an input value
+is also needed to define the access pattern. For zipf, this
+is the zipf theta. For pareto, it\(aqs the pareto power. Fio
+includes a test program, genzipf, that can be used visualize
+what the given input values will yield in terms of hit rates.
+If you wanted to use zipf with a theta of 1.2, you would use
+random_distribution=zipf:1.2 as the option. If a non\-uniform
+model is used, fio will disable use of the random map. For
+the gauss distribution, a normal deviation is supplied as
+a value between 0 and 100.
+.sp
+For a zoned distribution, fio supports specifying percentages
+of I/O access that should fall within what range of the file or
+device. For example, given a criteria of:
+.INDENT 7.0
+.IP \(bu 2
+60% of accesses should be to the first 10%
+.IP \(bu 2
+30% of accesses should be to the next 20%
+.IP \(bu 2
+8% of accesses should be to to the next 30%
+.IP \(bu 2
+2% of accesses should be to the next 40%
+.UNINDENT
+.sp
+we can define that through zoning of the random accesses. For
+the above example, the user would do:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+random_distribution=zoned:60/10:30/20:8/30:2/40
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+similarly to how bssplit works for setting ranges and
+percentages of block sizes. Like bssplit, it\(aqs possible to
+specify separate zones for reads, writes, and trims. If just
+one set is given, it\(aqll apply to all of them.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B percentage_random=int[,int][,int]
+For a random workload, set how big a percentage should
+be random. This defaults to 100%, in which case the workload
+is fully random. It can be set from anywhere from 0 to 100.
+Setting it to 0 would make the workload fully sequential. Any
+setting in between will result in a random mix of sequential
+and random I/O, at the given percentages.
+Comma\-separated values may be specified for reads, writes,
+and trims as described in \fI\%blocksize\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B norandommap
+Normally fio will cover every block of the file when doing
+random I/O. If this option is given, fio will just get a
+new random offset without looking at past I/O history. This
+means that some blocks may not be read or written, and that
+some blocks may be read/written more than once. If this option
+is used with \fI\%verify\fP and multiple blocksizes (via \fI\%bsrange\fP),
+only intact blocks are verified, i.e., partially\-overwritten
+blocks are ignored.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B softrandommap=bool
+See \fI\%norandommap\fP\&. If fio runs with the random block map
+enabled and it fails to allocate the map, if this option is
+set it will continue without a random block map. As coverage
+will not be as complete as with random maps, this option is
+disabled by default.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B random_generator=str
+Fio supports the following engines for generating
+I/O offsets for random I/O:
+.INDENT 7.0
+.IP \(bu 2
+\fBtausworthe\fP        \- Strong 2^88 cycle random number generator
+.IP \(bu 2
+\fBlfsr\fP                      \- Linear feedback shift register generator
+.IP \(bu 2
+\fBtausworthe64\fP      \- Strong 64\-bit 2^258 cycle random number generator
+.UNINDENT
+.sp
+Tausworthe is a strong random number generator, but it
+requires tracking on the side if we want to ensure that
+blocks are only read or written once. LFSR guarantees
+that we never generate the same offset twice, and it\(aqs
+also less computationally expensive. It\(aqs not a true
+random generator, however, though for I/O purposes it\(aqs
+typically good enough. LFSR only works with single
+block sizes, not with workloads that use multiple block
+sizes. If used with such a workload, fio may read or write
+some blocks multiple times. The default value is tausworthe,
+unless the required space exceeds 2^32 blocks. If it does,
+then tausworthe64 is selected automatically.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B nice=int
+Run the job with the given nice value. See man \fBnice(2)\fP\&.
+.sp
+On Windows, values less than \-15 set the process class to "High";
+\-1 through \-15 set "Above Normal"; 1 through 15 "Below Normal";
+and above 15 "Idle" priority class.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B prio=int
+Set the I/O priority value of this job. Linux limits us to
+a positive value between 0 and 7, with 0 being the highest.
+See man \fBionice(1)\fP\&. Refer to an appropriate manpage for
+other operating systems since meaning of priority may differ.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B prioclass=int
+Set the I/O priority class. See man \fBionice(1)\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B thinktime=int
+Stall the job x microseconds after an I/O has completed before
+issuing the next. May be used to simulate processing being
+done by an application. See \fI\%thinktime_blocks\fP and
+\fI\%thinktime_spin\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B thinktime_spin=int
+Only valid if thinktime is set \- pretend to spend CPU time
+doing something with the data received, before falling back
+to sleeping for the rest of the period specified by
+thinktime.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B thinktime_blocks=int
+Only valid if thinktime is set \- control how many blocks
+to issue, before waiting \(aqthinktime\(aq usecs. If not set,
+defaults to 1 which will make fio wait \(aqthinktime\(aq usecs
+after every block. This effectively makes any queue depth
+setting redundant, since no more than 1 I/O will be queued
+before we have to complete it and do our thinktime. In
+other words, this setting effectively caps the queue depth
+if the latter is larger.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rate=int[,int][,int]
+Cap the bandwidth used by this job. The number is in bytes/sec,
+the normal suffix rules apply.
+Comma\-separated values may be specified for reads, writes,
+and trims as described in \fI\%blocksize\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rate_min=int[,int][,int]
+Tell fio to do whatever it can to maintain at least this
+bandwidth. Failing to meet this requirement will cause
+the job to exit.
+Comma\-separated values may be specified for reads, writes,
+and trims as described in \fI\%blocksize\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rate_iops=int[,int][,int]
+Cap the bandwidth to this number of IOPS. Basically the same
+as rate, just specified independently of bandwidth. If the
+job is given a block size range instead of a fixed value,
+the smallest block size is used as the metric.
+Comma\-separated values may be specified for reads, writes,
+and trims as described in \fI\%blocksize\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rate_iops_min=int[,int][,int]
+If fio doesn\(aqt meet this rate of I/O, it will cause
+the job to exit.
+Comma\-separated values may be specified for reads, writes,
+and trims as described in \fI\%blocksize\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rate_process=str
+This option controls how fio manages rated I/O
+submissions. The default is \(aqlinear\(aq, which submits I/O in a
+linear fashion with fixed delays between IOs that gets
+adjusted based on I/O completion rates. If this is set to
+\(aqpoisson\(aq, fio will submit I/O based on a more real world
+random request flow, known as the Poisson process
+(\fI\%https://en.wikipedia.org/wiki/Poisson_process\fP). The lambda
+will be 10^6 / IOPS for the given workload.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B latency_target=int
+If set, fio will attempt to find the max performance
+point that the given workload will run at while maintaining a
+latency below this target. The values is given in microseconds.
+See \fI\%latency_window\fP and \fI\%latency_percentile\fP
+.UNINDENT
+.INDENT 0.0
+.TP
+.B latency_window=int
+Used with latency_target to specify the sample window
+that the job is run at varying queue depths to test the
+performance. The value is given in microseconds.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B latency_percentile=float
+The percentage of IOs that must fall within the
+criteria specified by \fI\%latency_target\fP and \fI\%latency_window\fP\&. If not
+set, this defaults to 100.0, meaning that all IOs must be equal
+or below to the value set by \fI\%latency_target\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B max_latency=int
+If set, fio will exit the job if it exceeds this maximum
+latency. It will exit with an ETIME error.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rate_cycle=int
+Average bandwidth for \(aqrate\(aq and \(aqrate_min\(aq over this number
+of milliseconds.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B cpumask=int
+Set the CPU affinity of this job. The parameter given is a
+bitmask of allowed CPU\(aqs the job may run on. So if you want
+the allowed CPUs to be 1 and 5, you would pass the decimal
+value of (1 << 1 | 1 << 5), or 34. See man
+\fBsched_setaffinity(2)\fP\&. This may not work on all supported
+operating systems or kernel versions. This option doesn\(aqt
+work well for a higher CPU count than what you can store in
+an integer mask, so it can only control cpus 1\-32. For
+boxes with larger CPU counts, use \fI\%cpus_allowed\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B cpus_allowed=str
+Controls the same options as cpumask, but it allows a text
+setting of the permitted CPUs instead. So to use CPUs 1 and
+5, you would specify \fBcpus_allowed=1,5\fP\&. This options also
+allows a range of CPUs. Say you wanted a binding to CPUs
+1, 5, and 8\-15, you would set \fBcpus_allowed=1,5,8\-15\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B cpus_allowed_policy=str
+Set the policy of how fio distributes the CPUs
+specified by cpus_allowed or cpumask. Two policies are
+supported:
+.INDENT 7.0
+.INDENT 3.5
+\fBshared\fP      All jobs will share the CPU set specified.
+.sp
+\fBsplit\fP       Each job will get a unique CPU from the CPU set.
+.UNINDENT
+.UNINDENT
+.sp
+\(aqshared\(aq is the default behaviour, if the option isn\(aqt
+specified. If split is specified, then fio will will assign
+one cpu per job. If not enough CPUs are given for the jobs
+listed, then fio will roundrobin the CPUs in the set.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B numa_cpu_nodes=str
+Set this job running on specified NUMA nodes\(aq CPUs. The
+arguments allow comma delimited list of cpu numbers,
+A\-B ranges, or \(aqall\(aq. Note, to enable numa options support,
+fio must be built on a system with libnuma\-dev(el) installed.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B numa_mem_policy=str
+Set this job\(aqs memory policy and corresponding NUMA
+nodes. Format of the arguments:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<mode>[:<nodelist>]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBmode\fP is one of the following memory policy:
+\fBdefault\fP, \fBprefer\fP, \fBbind\fP, \fBinterleave\fP, \fBlocal\fP
+For \fBdefault\fP and \fBlocal\fP memory policy, no node is
+needed to be specified.
+For \fBprefer\fP, only one node is allowed.
+For \fBbind\fP and \fBinterleave\fP, it allow comma delimited
+list of numbers, A\-B ranges, or \(aqall\(aq.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B startdelay=time
+Start this job the specified number of seconds after fio
+has started. Only useful if the job file contains several
+jobs, and you want to delay starting some jobs to a certain
+time.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B runtime=time
+Tell fio to terminate processing after the specified number
+of seconds. It can be quite hard to determine for how long
+a specified job will run, so this parameter is handy to
+cap the total runtime to a given time.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B time_based
+If set, fio will run for the duration of the runtime
+specified even if the file(s) are completely read or
+written. It will simply loop over the same workload
+as many times as the runtime allows.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ramp_time=time
+If set, fio will run the specified workload for this amount
+of time before logging any performance numbers. Useful for
+letting performance settle before logging results, thus
+minimizing the runtime required for stable results. Note
+that the ramp_time is considered lead in time for a job,
+thus it will increase the total runtime if a special timeout
+or runtime is specified.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B steadystate=str:float
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ss=str:float
+Define the criterion and limit for assessing steady state
+performance. The first parameter designates the criterion
+whereas the second parameter sets the threshold. When the
+criterion falls below the threshold for the specified duration,
+the job will stop. For example, iops_slope:0.1% will direct fio
+to terminate the job when the least squares regression slope
+falls below 0.1% of the mean IOPS. If option:\fIgroup_reporting\fP is
+enabled this will apply to all jobs in the group. Below is the
+list of available steady state assessment criteria. All
+assessments are carried out using only data from the rolling
+collection window. Threshold limits can be expressed as a fixed
+value or as a percentage of the mean in the collection window.
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBiops\fP
+Collect IOPS data. Stop the job if all
+individual IOPS measurements are within the
+specified limit of the mean IOPS (e.g., iops:2
+means that all individual IOPS values must be
+within 2 of the mean, whereas iops:0.2% means
+that all individual IOPS values must be within
+0.2% of the mean IOPS to terminate the job).
+.TP
+.B \fBiops_slope\fP
+Collect IOPS data and calculate the least
+squares regression slope. Stop the job if the
+slope falls below the specified limit.
+.TP
+.B \fBbw\fP
+Collect bandwidth data. Stop the job if all
+individual bandwidth measurements are within
+the specified limit of the mean bandwidth.
+.TP
+.B \fBbw_slope\fP
+Collect bandwidth data and calculate the least
+squares regression slope. Stop the job if the
+slope falls below the specified limit.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B steadystate_duration=time
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ss_dur=time
+A rolling window of this duration will be used to judge whether
+steady state has been reached. Data will be collected once per
+second. The default is 0 which disables steady state detection.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B steadystate_ramp_time=time
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ss_ramp=time
+Allow the job to run for the specified duration before
+beginning data collection for checking the steady state job
+termination criterion. The default is 0.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B invalidate=bool
+Invalidate the buffer/page cache parts for this file prior
+to starting I/O. Defaults to true.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B sync=bool
+Use sync I/O for buffered writes. For the majority of the
+I/O engines, this means using O_SYNC.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B iomem=str
+.UNINDENT
+.INDENT 0.0
+.TP
+.B mem=str
+Fio can use various types of memory as the I/O unit buffer.
+The allowed values are:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBmalloc\fP
+Use memory from \fBmalloc(3)\fP as the buffers.
+Default memory type.
+.TP
+.B \fBshm\fP
+Use shared memory as the buffers. Allocated
+through \fBshmget(2)\fP\&.
+.TP
+.B \fBshmhuge\fP
+Same as shm, but use huge pages as backing.
+.TP
+.B \fBmmap\fP
+Use mmap to allocate buffers. May either be
+anonymous memory, or can be file backed if
+a filename is given after the option. The
+format is \fImem=mmap:/path/to/file\fP\&.
+.TP
+.B \fBmmaphuge\fP
+Use a memory mapped huge file as the buffer
+backing. Append filename after mmaphuge, ala
+\fImem=mmaphuge:/hugetlbfs/file\fP
+.TP
+.B \fBmmapshared\fP
+Same as mmap, but use a MMAP_SHARED
+mapping.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+The area allocated is a function of the maximum allowed
+bs size for the job, multiplied by the I/O depth given. Note
+that for shmhuge and mmaphuge to work, the system must have
+free huge pages allocated. This can normally be checked
+and set by reading/writing \fB/proc/sys/vm/nr_hugepages\fP on a
+Linux system. Fio assumes a huge page is 4MiB in size. So
+to calculate the number of huge pages you need for a given
+job file, add up the I/O depth of all jobs (normally one unless
+iodepth= is used) and multiply by the maximum bs set. Then
+divide that number by the huge page size. You can see the
+size of the huge pages in \fB/proc/meminfo\fP\&. If no huge pages
+are allocated by having a non\-zero number in nr_hugepages,
+using mmaphuge or shmhuge will fail. Also see \fI\%hugepage\-size\fP\&.
+.sp
+mmaphuge also needs to have hugetlbfs mounted and the file
+location should point there. So if it\(aqs mounted in \fB/huge\fP,
+you would use \fImem=mmaphuge:/huge/somefile\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B iomem_align=int
+This indicates the memory alignment of the I/O memory buffers.
+Note that the given alignment is applied to the first I/O unit
+buffer, if using iodepth the alignment of the following buffers
+are given by the \fI\%bs\fP used. In other words, if using a \fI\%bs\fP that is
+a multiple of the page sized in the system, all buffers will
+be aligned to this value. If using a \fI\%bs\fP that is not page
+aligned, the alignment of subsequent I/O memory buffers is the
+sum of the \fI\%iomem_align\fP and \fI\%bs\fP used.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B hugepage\-size=int
+Defines the size of a huge page. Must at least be equal
+to the system setting, see \fB/proc/meminfo\fP\&. Defaults to 4MiB.
+Should probably always be a multiple of megabytes, so using
+\fBhugepage\-size=Xm\fP is the preferred way to set this to avoid
+setting a non\-pow\-2 bad value.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B exitall
+When one job finishes, terminate the rest. The default is
+to wait for each job to finish, sometimes that is not the
+desired action.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B exitall_on_error
+When one job finishes in error, terminate the rest. The
+default is to wait for each job to finish.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B bwavgtime=int
+Average the calculated bandwidth over the given time. Value
+is specified in milliseconds. If the job also does bandwidth
+logging through \fI\%write_bw_log\fP, then the minimum of this option
+and \fI\%log_avg_msec\fP will be used.  Default: 500ms.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B iopsavgtime=int
+Average the calculated IOPS over the given time. Value
+is specified in milliseconds. If the job also does IOPS logging
+through \fI\%write_iops_log\fP, then the minimum of this option and
+\fI\%log_avg_msec\fP will be used.  Default: 500ms.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B create_serialize=bool
+If true, serialize the file creation for the jobs.
+This may be handy to avoid interleaving of data
+files, which may greatly depend on the filesystem
+used and even the number of processors in the system.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B create_fsync=bool
+fsync the data file after creation. This is the default.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B create_on_open=bool
+Don\(aqt pre\-setup the files for I/O, just create open()
+when it\(aqs time to do I/O to that file.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B create_only=bool
+If true, fio will only run the setup phase of the job.
+If files need to be laid out or updated on disk, only
+that will be done. The actual job contents are not
+executed.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B allow_file_create=bool
+If true, fio is permitted to create files as part
+of its workload. This is the default behavior. If this
+option is false, then fio will error out if the files it
+needs to use don\(aqt already exist. Default: true.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B allow_mounted_write=bool
+If this isn\(aqt set, fio will abort jobs that
+are destructive (eg that write) to what appears to be a
+mounted device or partition. This should help catch creating
+inadvertently destructive tests, not realizing that the test
+will destroy data on the mounted file system. Default: false.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B pre_read=bool
+If this is given, files will be pre\-read into memory before
+starting the given I/O operation. This will also clear
+the \(aqinvalidate\(aq flag, since it is pointless to pre\-read
+and then drop the cache. This will only work for I/O engines
+that are seek\-able, since they allow you to read the same data
+multiple times. Thus it will not work on eg network or splice
+I/O.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B unlink=bool
+Unlink the job files when done. Not the default, as repeated
+runs of that job would then waste time recreating the file
+set again and again.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B unlink_each_loop=bool
+Unlink job files after each iteration or loop.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B loops=int
+Run the specified number of iterations of this job. Used
+to repeat the same workload a given number of times. Defaults to 1.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_only
+Do not perform specified workload\-\-\-only verify data still
+matches previous invocation of this workload. This option
+allows one to check data multiple times at a later date
+without overwriting it. This option makes sense only for
+workloads that write data, and does not support workloads
+with the \fI\%time_based\fP option set.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B do_verify=bool
+Run the verify phase after a write phase. Only makes sense if
+\fI\%verify\fP is set. Defaults to 1.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify=str
+If writing to a file, fio can verify the file contents
+after each iteration of the job. Each verification method also implies
+verification of special header, which is written to the beginning of
+each block. This header also includes meta information, like offset
+of the block, block number, timestamp when block was written, etc.
+\fI\%verify\fP =str can be combined with \fI\%verify_pattern\fP =str option.
+The allowed values are:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBmd5\fP
+Use an md5 sum of the data area and store
+it in the header of each block.
+.TP
+.B \fBcrc64\fP
+Use an experimental crc64 sum of the data
+area and store it in the header of each
+block.
+.TP
+.B \fBcrc32c\fP
+Use a crc32c sum of the data area and store
+it in the header of each block.
+.TP
+.B \fBcrc32c\-intel\fP
+Use hardware assisted crc32c calculation
+provided on SSE4.2 enabled processors. Falls
+back to regular software crc32c, if not
+supported by the system.
+.TP
+.B \fBcrc32c\-arm64\fP
+Use hardware assisted crc32c calculation
+provided on CRC enabled ARM 64\-bits processors.
+Falls back to regular software crc32c, if not
+supported by the system.
+.TP
+.B \fBcrc32\fP
+Use a crc32 sum of the data area and store
+it in the header of each block.
+.TP
+.B \fBcrc16\fP
+Use a crc16 sum of the data area and store
+it in the header of each block.
+.TP
+.B \fBcrc7\fP
+Use a crc7 sum of the data area and store
+it in the header of each block.
+.TP
+.B \fBxxhash\fP
+Use xxhash as the checksum function. Generally
+the fastest software checksum that fio
+supports.
+.TP
+.B \fBsha512\fP
+Use sha512 as the checksum function.
+.TP
+.B \fBsha256\fP
+Use sha256 as the checksum function.
+.TP
+.B \fBsha1\fP
+Use optimized sha1 as the checksum function.
+.TP
+.B \fBmeta\fP
+This option is deprecated, since now meta information is
+included in generic verification header and meta verification
+happens by default. For detailed information see the description
+of the \fI\%verify\fP setting. This option is kept because of
+compatibility\(aqs sake with old configurations. Do not use it.
+.TP
+.B \fBpattern\fP
+Verify a strict pattern. Normally fio includes
+a header with some basic information and
+checksumming, but if this option is set, only
+the specific pattern set with \(aqverify_pattern\(aq
+is verified.
+.TP
+.B \fBnull\fP
+Only pretend to verify. Useful for testing
+internals with ioengine=null, not for much
+else.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+This option can be used for repeated burn\-in tests of a
+system to make sure that the written data is also
+correctly read back. If the data direction given is
+a read or random read, fio will assume that it should
+verify a previously written file. If the data direction
+includes any form of write, the verify will be of the
+newly written data.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verifysort=bool
+If set, fio will sort written verify blocks when it deems
+it faster to read them back in a sorted manner. This is
+often the case when overwriting an existing file, since
+the blocks are already laid out in the file system. You
+can ignore this option unless doing huge amounts of really
+fast I/O where the red\-black tree sorting CPU time becomes
+significant.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_offset=int
+Swap the verification header with data somewhere else
+in the block before writing. Its swapped back before
+verifying.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_interval=int
+Write the verification header at a finer granularity
+than the blocksize. It will be written for chunks the
+size of header_interval. blocksize should divide this
+evenly.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_pattern=str
+If set, fio will fill the I/O buffers with this
+pattern. Fio defaults to filling with totally random
+bytes, but sometimes it\(aqs interesting to fill with a known
+pattern for I/O verification purposes. Depending on the
+width of the pattern, fio will fill 1/2/3/4 bytes of the
+buffer at the time(it can be either a decimal or a hex number).
+The verify_pattern if larger than a 32\-bit quantity has to
+be a hex number that starts with either "0x" or "0X". Use
+with \fI\%verify\fP =str. Also, \fBverify_pattern\fP supports %o format,
+which means that for each block offset will be written and
+then verified back, e.g.:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+verify_pattern=%o
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Or use combination of everything:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+verify_pattern=0xff%o"abcd"\-12
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_fatal=bool
+Normally fio will keep checking the entire contents
+before quitting on a block verification failure. If this
+option is set, fio will exit the job on the first observed
+failure.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_dump=bool
+If set, dump the contents of both the original data
+block and the data block we read off disk to files. This
+allows later analysis to inspect just what kind of data
+corruption occurred. Off by default.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_async=int
+Fio will normally verify I/O inline from the submitting
+thread. This option takes an integer describing how many
+async offload threads to create for I/O verification instead,
+causing fio to offload the duty of verifying I/O contents
+to one or more separate threads. If using this offload
+option, even sync I/O engines can benefit from using an
+iodepth setting higher than 1, as it allows them to have
+I/O in flight while verifies are running.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_async_cpus=str
+Tell fio to set the given CPU affinity on the
+async I/O verification threads. See \fI\%cpus_allowed\fP for the
+format used.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_backlog=int
+Fio will normally verify the written contents of a
+job that utilizes verify once that job has completed. In
+other words, everything is written then everything is read
+back and verified. You may want to verify continually
+instead for a variety of reasons. Fio stores the meta data
+associated with an I/O block in memory, so for large
+verify workloads, quite a bit of memory would be used up
+holding this meta data. If this option is enabled, fio
+will write only N blocks before verifying these blocks.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_backlog_batch=int
+Control how many blocks fio will verify
+if verify_backlog is set. If not set, will default to
+the value of verify_backlog (meaning the entire queue
+is read back and verified).  If verify_backlog_batch is
+less than verify_backlog then not all blocks will be verified,
+if verify_backlog_batch is larger than verify_backlog, some
+blocks will be verified more than once.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_state_save=bool
+When a job exits during the write phase of a verify
+workload, save its current state. This allows fio to replay
+up until that point, if the verify state is loaded for the
+verify read phase. The format of the filename is, roughly,
+<type>\-<jobname>\-<jobindex>\-verify.state. <type> is "local"
+for a local run, "sock" for a client/server socket connection,
+and "ip" (192.168.0.1, for instance) for a networked
+client/server connection.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B verify_state_load=bool
+If a verify termination trigger was used, fio stores
+the current write state of each thread. This can be used at
+verification time so that fio knows how far it should verify.
+Without this information, fio will run a full verification
+pass, according to the settings in the job file used.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B stonewall
+.UNINDENT
+.INDENT 0.0
+.TP
+.B wait_for_previous
+Wait for preceding jobs in the job file to exit, before
+starting this one. Can be used to insert serialization
+points in the job file. A stone wall also implies starting
+a new reporting group.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B new_group
+Start a new reporting group. See: \fI\%group_reporting\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B numjobs=int
+Create the specified number of clones of this job. May be
+used to setup a larger number of threads/processes doing
+the same thing. Each thread is reported separately; to see
+statistics for all clones as a whole, use option:\fIgroup_reporting\fP in
+conjunction with option:\fInew_group\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B group_reporting
+It may sometimes be interesting to display statistics for
+groups of jobs as a whole instead of for each individual job.
+This is especially true if option:\fInumjobs\fP is used; looking at
+individual thread/process output quickly becomes unwieldy.
+To see the final report per\-group instead of per\-job, use
+option:\fIgroup_reporting\fP\&. Jobs in a file will be part of the same
+reporting group, unless if separated by a \fI\%stonewall\fP, or by
+using option:\fInew_group\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B thread
+fio defaults to forking jobs, however if this option is
+given, fio will use \fBpthread_create(3)\fP to create threads
+instead.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B zonesize=int
+Divide a file into zones of the specified size. See \fI\%zoneskip\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B zoneskip=int
+Skip the specified number of bytes when zonesize data has
+been read. The two zone options can be used to only do
+I/O on zones of a file.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B write_iolog=str
+Write the issued I/O patterns to the specified file. See
+\fI\%read_iolog\fP\&.  Specify a separate file for each job, otherwise
+the iologs will be interspersed and the file may be corrupt.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B read_iolog=str
+Open an iolog with the specified file name and replay the
+I/O patterns it contains. This can be used to store a
+workload and replay it sometime later. The iolog given
+may also be a blktrace binary file, which allows fio
+to replay a workload captured by \fBblktrace\fP\&. See \fBblktrace(8)\fP
+for how to capture such logging data. For blktrace replay,
+the file needs to be turned into a blkparse binary data
+file first (\fBblkparse <device> \-o /dev/null \-d file_for_fio.bin\fP).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B replay_no_stall=int
+When replaying I/O with read_iolog the default behavior
+is to attempt to respect the time stamps within the log and
+replay them with the appropriate delay between IOPS. By
+setting this variable fio will not respect the timestamps and
+attempt to replay them as fast as possible while still
+respecting ordering. The result is the same I/O pattern to a
+given device, but different timings.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B replay_redirect=str
+While replaying I/O patterns using read_iolog the
+default behavior is to replay the IOPS onto the major/minor
+device that each IOP was recorded from.  This is sometimes
+undesirable because on a different machine those major/minor
+numbers can map to a different device.  Changing hardware on
+the same system can also result in a different major/minor
+mapping.  Replay_redirect causes all IOPS to be replayed onto
+the single specified device regardless of the device it was
+recorded from. i.e. \fI\%replay_redirect\fP = \fB/dev/sdc\fP would cause all
+I/O in the blktrace or iolog to be replayed onto \fB/dev/sdc\fP\&.
+This means multiple devices will be replayed onto a single
+device, if the trace contains multiple devices. If you want
+multiple devices to be replayed concurrently to multiple
+redirected devices you must blkparse your trace into separate
+traces and replay them with independent fio invocations.
+Unfortunately this also breaks the strict time ordering
+between multiple device accesses.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B replay_align=int
+Force alignment of I/O offsets and lengths in a trace
+to this power of 2 value.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B replay_scale=int
+Scale sector offsets down by this factor when
+replaying traces.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B per_job_logs=bool
+If set, this generates bw/clat/iops log with per
+file private filenames. If not set, jobs with identical names
+will share the log filename. Default: true.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B write_bw_log=str
+If given, write a bandwidth log of the jobs in this job
+file. Can be used to store data of the bandwidth of the
+jobs in their lifetime. The included fio_generate_plots
+script uses gnuplot to turn these text files into nice
+graphs. See \fI\%write_lat_log\fP for behaviour of given
+filename. For this option, the suffix is _bw.x.log, where
+x is the index of the job (1..N, where N is the number of
+jobs). If \fI\%per_job_logs\fP is false, then the filename will not
+include the job index. See \fI\%Log File Formats\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B write_lat_log=str
+Same as write_bw_log, except that this option stores I/O
+submission, completion, and total latencies instead. If no
+filename is given with this option, the default filename of
+"jobname_type.log" is used. Even if the filename is given,
+fio will still append the type of log. So if one specifies:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+write_lat_log=foo
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The actual log names will be foo_slat.x.log, foo_clat.x.log,
+and foo_lat.x.log, where x is the index of the job (1..N,
+where N is the number of jobs). This helps fio_generate_plot
+find the logs automatically. If \fI\%per_job_logs\fP is false, then
+the filename will not include the job index.
+See \fI\%Log File Formats\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B write_hist_log=str
+Same as write_lat_log, but writes I/O completion
+latency histograms. If no filename is given with this option, the
+default filename of "jobname_clat_hist.x.log" is used, where x is
+the index of the job (1..N, where N is the number of jobs). Even
+if the filename is given, fio will still append the type of log.
+If \fI\%per_job_logs\fP is false, then the filename will not include the
+job index. See \fI\%Log File Formats\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B write_iops_log=str
+Same as \fI\%write_bw_log\fP, but writes IOPS. If no filename is
+given with this option, the default filename of
+"jobname_type.x.log" is used,where x is the index of the job
+(1..N, where N is the number of jobs). Even if the filename
+is given, fio will still append the type of log. If
+\fI\%per_job_logs\fP is false, then the filename will not include
+the job index. See \fI\%Log File Formats\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B log_avg_msec=int
+By default, fio will log an entry in the iops, latency,
+or bw log for every I/O that completes. When writing to the
+disk log, that can quickly grow to a very large size. Setting
+this option makes fio average the each log entry over the
+specified period of time, reducing the resolution of the log.
+See \fI\%log_max_value\fP as well. Defaults to 0, logging all entries.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B log_hist_msec=int
+Same as log_avg_msec, but logs entries for completion
+latency histograms. Computing latency percentiles from averages of
+intervals using \fI\%log_avg_msec\fP is innacurate. Setting this option makes
+fio log histogram entries over the specified period of time, reducing
+log sizes for high IOPS devices while retaining percentile accuracy.
+See \fI\%log_hist_coarseness\fP as well. Defaults to 0, meaning histogram
+logging is disabled.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B log_hist_coarseness=int
+Integer ranging from 0 to 6, defining the coarseness
+of the resolution of the histogram logs enabled with log_hist_msec. For
+each increment in coarseness, fio outputs half as many bins. Defaults to
+0, for which histogram logs contain 1216 latency bins. See
+\fI\%Log File Formats\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B log_max_value=bool
+If log_avg_msec is set, fio logs the average over that
+window. If you instead want to log the maximum value, set this
+option to 1. Defaults to 0, meaning that averaged values are
+logged.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B log_offset=int
+If this is set, the iolog options will include the byte
+offset for the I/O entry as well as the other data values.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B log_compression=int
+If this is set, fio will compress the I/O logs as
+it goes, to keep the memory footprint lower. When a log
+reaches the specified size, that chunk is removed and
+compressed in the background. Given that I/O logs are
+fairly highly compressible, this yields a nice memory
+savings for longer runs. The downside is that the
+compression will consume some background CPU cycles, so
+it may impact the run. This, however, is also true if
+the logging ends up consuming most of the system memory.
+So pick your poison. The I/O logs are saved normally at the
+end of a run, by decompressing the chunks and storing them
+in the specified log file. This feature depends on the
+availability of zlib.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B log_compression_cpus=str
+Define the set of CPUs that are allowed to
+handle online log compression for the I/O jobs. This can
+provide better isolation between performance sensitive jobs,
+and background compression work.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B log_store_compressed=bool
+If set, fio will store the log files in a
+compressed format. They can be decompressed with fio, using
+the \fB\-\-inflate\-log\fP command line parameter. The files will be
+stored with a .fz suffix.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B log_unix_epoch=bool
+If set, fio will log Unix timestamps to the log
+files produced by enabling write_type_log for each log type, instead
+of the default zero\-based timestamps.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B block_error_percentiles=bool
+If set, record errors in trim block\-sized
+units from writes and trims and output a histogram of
+how many trims it took to get to errors, and what kind
+of error was encountered.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B lockmem=int
+Pin down the specified amount of memory with \fBmlock(2)\fP\&. Can
+potentially be used instead of removing memory or booting
+with less memory to simulate a smaller amount of memory.
+The amount specified is per worker.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B exec_prerun=str
+Before running this job, issue the command specified
+through \fBsystem(3)\fP\&. Output is redirected in a file called
+jobname.prerun.txt.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B exec_postrun=str
+After the job completes, issue the command specified
+though \fBsystem(3)\fP\&. Output is redirected in a file called
+jobname.postrun.txt.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ioscheduler=str
+Attempt to switch the device hosting the file to the specified
+I/O scheduler before running.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B disk_util=bool
+Generate disk utilization statistics, if the platform
+supports it. Defaults to on.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B disable_lat=bool
+Disable measurements of total latency numbers. Useful
+only for cutting back the number of calls to \fBgettimeofday(2)\fP,
+as that does impact performance at really high IOPS rates.
+Note that to really get rid of a large amount of these
+calls, this option must be used with \fI\%disable_slat\fP and
+\fI\%disable_bw\fP as well.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B disable_clat=bool
+Disable measurements of completion latency numbers. See
+\fI\%disable_lat\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B disable_slat=bool
+Disable measurements of submission latency numbers. See
+\fI\%disable_slat\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B disable_bw=bool
+Disable measurements of throughput/bandwidth numbers. See
+\fI\%disable_lat\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B clat_percentiles=bool
+Enable the reporting of percentiles of
+completion latencies.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B percentile_list=float_list
+Overwrite the default list of percentiles
+for completion latencies and the block error histogram.
+Each number is a floating number in the range (0,100],
+and the maximum length of the list is 20. Use \(aq:\(aq
+to separate the numbers, and list the numbers in ascending
+order. For example, \-\-percentile_list=99.5:99.9 will cause
+fio to report the values of completion latency below which
+99.5% and 99.9% of the observed latencies fell, respectively.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B clocksource=str
+Use the given clocksource as the base of timing. The
+supported options are:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBgettimeofday\fP
+\fBgettimeofday(2)\fP
+.TP
+.B \fBclock_gettime\fP
+\fBclock_gettime(2)\fP
+.TP
+.B \fBcpu\fP
+Internal CPU clock source
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+cpu is the preferred clocksource if it is reliable, as it
+is very fast (and fio is heavy on time calls). Fio will
+automatically use this clocksource if it\(aqs supported and
+considered reliable on the system it is running on, unless
+another clocksource is specifically set. For x86/x86\-64 CPUs,
+this means supporting TSC Invariant.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B gtod_reduce=bool
+Enable all of the \fBgettimeofday(2)\fP reducing options
+(disable_clat, disable_slat, disable_bw) plus reduce
+precision of the timeout somewhat to really shrink
+the \fBgettimeofday(2)\fP call count. With this option enabled,
+we only do about 0.4% of the gtod() calls we would have
+done if all time keeping was enabled.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B gtod_cpu=int
+Sometimes it\(aqs cheaper to dedicate a single thread of
+execution to just getting the current time. Fio (and
+databases, for instance) are very intensive on \fBgettimeofday(2)\fP
+calls. With this option, you can set one CPU aside for
+doing nothing but logging current time to a shared memory
+location. Then the other threads/processes that run I/O
+workloads need only copy that segment, instead of entering
+the kernel with a \fBgettimeofday(2)\fP call. The CPU set aside
+for doing these time calls will be excluded from other
+uses. Fio will manually clear it from the CPU mask of other  jobs.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B continue_on_error=str
+Normally fio will exit the job on the first observed
+failure. If this option is set, fio will continue the job when
+there is a \(aqnon\-fatal error\(aq (EIO or EILSEQ) until the runtime
+is exceeded or the I/O size specified is completed. If this
+option is used, there are two more stats that are appended,
+the total error count and the first error. The error field
+given in the stats is the first error that was hit during the
+run.
+.sp
+The allowed values are:
+.INDENT 7.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B \fBnone\fP
+Exit on any I/O or verify errors.
+.TP
+.B \fBread\fP
+Continue on read errors, exit on all others.
+.TP
+.B \fBwrite\fP
+Continue on write errors, exit on all others.
+.TP
+.B \fBio\fP
+Continue on any I/O error, exit on all others.
+.TP
+.B \fBverify\fP
+Continue on verify errors, exit on all others.
+.TP
+.B \fBall\fP
+Continue on all errors.
+.TP
+.B \fB0\fP
+Backward\-compatible alias for \(aqnone\(aq.
+.TP
+.B \fB1\fP
+Backward\-compatible alias for \(aqall\(aq.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ignore_error=str
+Sometimes you want to ignore some errors during test
+in that case you can specify error list for each error type.
+ignore_error=READ_ERR_LIST,WRITE_ERR_LIST,VERIFY_ERR_LIST
+errors for given error type is separated with \(aq:\(aq. Error
+may be symbol (\(aqENOSPC\(aq, \(aqENOMEM\(aq) or integer.
+Example:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ignore_error=EAGAIN,ENOSPC:122
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+This option will ignore EAGAIN from READ, and ENOSPC and
+122(EDQUOT) from WRITE.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B error_dump=bool
+If set dump every error even if it is non fatal, true
+by default. If disabled only fatal error will be dumped
+.UNINDENT
+.INDENT 0.0
+.TP
+.B cgroup=str
+Add job to this control group. If it doesn\(aqt exist, it will
+be created. The system must have a mounted cgroup blkio
+mount point for this to work. If your system doesn\(aqt have it
+mounted, you can do so with:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+# mount \-t cgroup \-o blkio none /cgroup
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B cgroup_weight=int
+Set the weight of the cgroup to this value. See
+the documentation that comes with the kernel, allowed values
+are in the range of 100..1000.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B cgroup_nodelete=bool
+Normally fio will delete the cgroups it has created after
+the job completion. To override this behavior and to leave
+cgroups around after the job completion, set cgroup_nodelete=1.
+This can be useful if one wants to inspect various cgroup
+files after job completion. Default: false
+.UNINDENT
+.INDENT 0.0
+.TP
+.B uid=int
+Instead of running as the invoking user, set the user ID to
+this value before the thread/process does any work.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B gid=int
+.UNINDENT
+.sp
+Set group ID, see \fI\%uid\fP\&.
+.INDENT 0.0
+.TP
+.B flow_id=int
+The ID of the flow. If not specified, it defaults to being a
+global flow. See \fI\%flow\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B flow=int
+Weight in token\-based flow control. If this value is used, then
+there is a \(aqflow counter\(aq which is used to regulate the
+proportion of activity between two or more jobs. fio attempts
+to keep this flow counter near zero. The \(aqflow\(aq parameter
+stands for how much should be added or subtracted to the flow
+counter on each iteration of the main I/O loop. That is, if
+one job has flow=8 and another job has flow=\-1, then there
+will be a roughly 1:8 ratio in how much one runs vs the other.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B flow_watermark=int
+The maximum value that the absolute value of the flow
+counter is allowed to reach before the job must wait for a
+lower value of the counter.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B flow_sleep=int
+The period of time, in microseconds, to wait after the flow
+watermark has been exceeded before retrying operations
+.UNINDENT
+.SS I/O Engine specific parameters
+.sp
+In addition, there are some parameters which are only valid when a specific
+ioengine is in use. These are used identically to normal parameters, with the
+caveat that when used on the command line, they must come after the ioengine
+that defines them is selected.
+.INDENT 0.0
+.TP
+.B userspace_reap : [libaio]
+Normally, with the libaio engine in use, fio will use
+the io_getevents system call to reap newly returned events.
+With this flag turned on, the AIO ring will be read directly
+from user\-space to reap events. The reaping mode is only
+enabled when polling for a minimum of 0 events (eg when
+iodepth_batch_complete=0).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B hipri : [psyncv2]
+Set RWF_HIPRI on I/O, indicating to the kernel that
+it\(aqs of higher priority than normal.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B cpuload=int : [cpuio]
+Attempt to use the specified percentage of CPU cycles.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B cpuchunks=int : [cpuio]
+Split the load into cycles of the given time. In
+microseconds.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B exit_on_io_done=bool : [cpuio]
+Detect when I/O threads are done, then exit.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B hostname=str : [netsplice] [net]
+The host name or IP address to use for TCP or UDP based I/O.
+If the job is a TCP listener or UDP reader, the hostname is not
+used and must be omitted unless it is a valid UDP multicast
+address.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B namenode=str : [libhdfs]
+The host name or IP address of a HDFS cluster namenode to contact.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B port=int
+.INDENT 7.0
+.TP
+.B [netsplice], [net]
+The TCP or UDP port to bind to or connect to. If this is used
+with numjobs to spawn multiple instances of the same job type, then this will
+be the starting port number since fio will use a range of ports.
+.TP
+.B [libhdfs]
+the listening port of the HFDS cluster namenode.
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B interface=str : [netsplice] [net]
+The IP address of the network interface used to send or
+receive UDP multicast
+.UNINDENT
+.INDENT 0.0
+.TP
+.B ttl=int : [netsplice] [net]
+Time\-to\-live value for outgoing UDP multicast packets.
+Default: 1
+.UNINDENT
+.INDENT 0.0
+.TP
+.B nodelay=bool : [netsplice] [net]
+Set TCP_NODELAY on TCP connections.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B protocol=str : [netsplice] [net]
+.UNINDENT
+.INDENT 0.0
+.TP
+.B proto=str : [netsplice] [net]
+The network protocol to use. Accepted values are:
+.INDENT 7.0
+.IP \(bu 2
+\fBtcp\fP       Transmission control protocol
+.IP \(bu 2
+\fBtcpv6\fP     Transmission control protocol V6
+.IP \(bu 2
+\fBudp\fP       User datagram protocol
+.IP \(bu 2
+\fBudpv6\fP     User datagram protocol V6
+.IP \(bu 2
+\fBunix\fP      UNIX domain socket
+.UNINDENT
+.sp
+When the protocol is TCP or UDP, the port must also be given,
+as well as the hostname if the job is a TCP listener or UDP
+reader. For unix sockets, the normal filename option should be
+used and the port is invalid.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B listen : [net]
+For TCP network connections, tell fio to listen for incoming
+connections rather than initiating an outgoing connection. The
+hostname must be omitted if this option is used.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B pingpong : [net]
+Normally a network writer will just continue writing data, and
+a network reader will just consume packages. If \fBpingpong=1\fP
+is set, a writer will send its normal payload to the reader,
+then wait for the reader to send the same payload back. This
+allows fio to measure network latencies. The submission
+and completion latencies then measure local time spent
+sending or receiving, and the completion latency measures
+how long it took for the other end to receive and send back.
+For UDP multicast traffic \fBpingpong=1\fP should only be set for a
+single reader when multiple readers are listening to the same
+address.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B window_size : [net]
+Set the desired socket buffer size for the connection.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B mss : [net]
+Set the TCP maximum segment size (TCP_MAXSEG).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B donorname=str : [e4defrag]
+File will be used as a block donor(swap extents between files)
+.UNINDENT
+.INDENT 0.0
+.TP
+.B inplace=int : [e4defrag]
+Configure donor file blocks allocation strategy
+.INDENT 7.0
+.IP \(bu 2
+0(default): Preallocate donor\(aqs file on init
+.IP \(bu 2
+.INDENT 2.0
+.TP
+.B 1: allocate space immediately inside defragment event,
+and free right after event
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B clustername=str : [rbd]
+Specifies the name of the Ceph cluster.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B rbdname=str : [rbd]
+Specifies the name of the RBD.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B pool=str : [rbd]
+Specifies the name of the Ceph pool containing RBD.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B clientname=str : [rbd]
+Specifies the username (without the \(aqclient.\(aq prefix)
+used to access the Ceph cluster. If the clustername is
+specified, the clientname shall be the full type.id
+string. If no type. prefix is given, fio will add
+\(aqclient.\(aq by default.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B skip_bad=bool : [mtd]
+Skip operations against known bad blocks.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B hdfsdirectory : [libhdfs]
+libhdfs will create chunk in this HDFS directory
+.UNINDENT
+.INDENT 0.0
+.TP
+.B chunk_size : [libhdfs]
+the size of the chunk to use for each file.
+.UNINDENT
+.SH INTERPRETING THE OUTPUT
+.sp
+fio spits out a lot of output. While running, fio will display the
+status of the jobs created. An example of that would be:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Jobs: 1: [_r] [24.8% done] [r=20992KiB/s,w=24064KiB/s,t=0KiB/s] [r=82,w=94,t=0 iops] [eta 00h:01m:31s]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The characters inside the square brackets denote the current status of
+each thread. The possible values (in typical life cycle order) are:
+.TS
+center;
+|l|l|l|.
+_
+T{
+Idle
+T}	T{
+Run
+T}	T{
+T}
+_
+T{
+P
+T}	T{
+T}	T{
+Thread setup, but not started.
+T}
+_
+T{
+C
+T}	T{
+T}	T{
+Thread created.
+T}
+_
+T{
+I
+T}	T{
+T}	T{
+Thread initialized, waiting or generating necessary data.
+T}
+_
+T{
+T}	T{
+p
+T}	T{
+Thread running pre\-reading file(s).
+T}
+_
+T{
+T}	T{
+R
+T}	T{
+Running, doing sequential reads.
+T}
+_
+T{
+T}	T{
+r
+T}	T{
+Running, doing random reads.
+T}
+_
+T{
+T}	T{
+W
+T}	T{
+Running, doing sequential writes.
+T}
+_
+T{
+T}	T{
+w
+T}	T{
+Running, doing random writes.
+T}
+_
+T{
+T}	T{
+M
+T}	T{
+Running, doing mixed sequential reads/writes.
+T}
+_
+T{
+T}	T{
+m
+T}	T{
+Running, doing mixed random reads/writes.
+T}
+_
+T{
+T}	T{
+F
+T}	T{
+Running, currently waiting for \fBfsync(2)\fP
+T}
+_
+T{
+T}	T{
+V
+T}	T{
+Running, doing verification of written data.
+T}
+_
+T{
+E
+T}	T{
+T}	T{
+Thread exited, not reaped by main thread yet.
+T}
+_
+T{
+_
+T}	T{
+T}	T{
+Thread reaped, or
+T}
+_
+T{
+X
+T}	T{
+T}	T{
+Thread reaped, exited with an error.
+T}
+_
+T{
+K
+T}	T{
+T}	T{
+Thread reaped, exited due to signal.
+T}
+_
+.TE
+.sp
+Fio will condense the thread string as not to take up more space on the
+command line as is needed. For instance, if you have 10 readers and 10
+writers running, the output would look like this:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Jobs: 20 (f=20): [R(10),W(10)] [4.0% done] [r=20992KiB/s,w=24064KiB/s,t=0KiB/s] [r=82,w=94,t=0 iops] [eta 57m:36s]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Fio will still maintain the ordering, though. So the above means that jobs
+1..10 are readers, and 11..20 are writers.
+.sp
+The other values are fairly self explanatory \- number of threads
+currently running and doing I/O, rate of I/O since last check (read speed
+listed first, then write speed), and the estimated completion percentage
+and time for the running group. It\(aqs impossible to estimate runtime of
+the following groups (if any). Note that the string is displayed in order,
+so it\(aqs possible to tell which of the jobs are currently doing what. The
+first character is the first job defined in the job file, and so forth.
+.sp
+When fio is done (or interrupted by \fBctrl\-c\fP), it will show the data for
+each thread, group of threads, and disks in that order. For each data
+direction, the output looks like:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Client1 (g=0): err= 0:
+  write: io=    32MiB, bw=   666KiB/s, iops=89 , runt= 50320msec
+    slat (msec): min=    0, max=  136, avg= 0.03, stdev= 1.92
+    clat (msec): min=    0, max=  631, avg=48.50, stdev=86.82
+    bw (KiB/s) : min=    0, max= 1196, per=51.00%, avg=664.02, stdev=681.68
+  cpu        : usr=1.49%, sys=0.25%, ctx=7969, majf=0, minf=17
+  IO depths    : 1=0.1%, 2=0.3%, 4=0.5%, 8=99.0%, 16=0.0%, 32=0.0%, >32=0.0%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     issued r/w: total=0/32768, short=0/0
+     lat (msec): 2=1.6%, 4=0.0%, 10=3.2%, 20=12.8%, 50=38.4%, 100=24.8%,
+     lat (msec): 250=15.2%, 500=0.0%, 750=0.0%, 1000=0.0%, >=2048=0.0%
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The client number is printed, along with the group id and error of that
+thread. Below is the I/O statistics, here for writes. In the order listed,
+they denote:
+.INDENT 0.0
+.TP
+\fBio=\fP
+Number of megabytes I/O performed
+.TP
+\fBbw=\fP
+Average bandwidth rate
+.TP
+\fBiops=\fP
+Average IOs performed per second
+.TP
+\fBrunt=\fP
+The runtime of that thread
+.TP
+\fBslat=\fP
+Submission latency (avg being the average, stdev being the
+standard deviation). This is the time it took to submit
+the I/O. For sync I/O, the slat is really the completion
+latency, since queue/complete is one operation there. This
+value can be in milliseconds or microseconds, fio will choose
+the most appropriate base and print that. In the example
+above, milliseconds is the best scale. Note: in \fB\-\-minimal\fP mode
+latencies are always expressed in microseconds.
+.TP
+\fBclat=\fP
+Completion latency. Same names as slat, this denotes the
+time from submission to completion of the I/O pieces. For
+sync I/O, clat will usually be equal (or very close) to 0,
+as the time from submit to complete is basically just
+CPU time (I/O has already been done, see slat explanation).
+.TP
+\fBbw=\fP
+Bandwidth. Same names as the xlat stats, but also includes
+an approximate percentage of total aggregate bandwidth
+this thread received in this group. This last value is
+only really useful if the threads in this group are on the
+same disk, since they are then competing for disk access.
+.TP
+\fBcpu=\fP
+CPU usage. User and system time, along with the number
+of context switches this thread went through, usage of
+system and user time, and finally the number of major
+and minor page faults. The CPU utilization numbers are
+averages for the jobs in that reporting group, while the
+context and fault counters are summed.
+.TP
+\fBIO depths=\fP
+The distribution of I/O depths over the job life time. The
+numbers are divided into powers of 2, so for example the
+16= entries includes depths up to that value but higher
+than the previous entry. In other words, it covers the
+range from 16 to 31.
+.TP
+\fBIO submit=\fP
+How many pieces of I/O were submitting in a single submit
+call. Each entry denotes that amount and below, until
+the previous entry \- eg, 8=100% mean that we submitted
+anywhere in between 5\-8 ios per submit call.
+.TP
+\fBIO complete=\fP
+Like the above submit number, but for completions instead.
+.TP
+\fBIO issued=\fP
+The number of read/write requests issued, and how many
+of them were short.
+.TP
+\fBIO latencies=\fP
+The distribution of I/O completion latencies. This is the
+time from when I/O leaves fio and when it gets completed.
+The numbers follow the same pattern as the I/O depths,
+meaning that 2=1.6% means that 1.6% of the I/O completed
+within 2 msecs, 20=12.8% means that 12.8% of the I/O
+took more than 10 msecs, but less than (or equal to) 20 msecs.
+.UNINDENT
+.sp
+After each client has been listed, the group statistics are printed. They
+will look like this:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Run status group 0 (all jobs):
+   READ: io=64MB, aggrb=22178, minb=11355, maxb=11814, mint=2840msec, maxt=2955msec
+  WRITE: io=64MB, aggrb=1302, minb=666, maxb=669, mint=50093msec, maxt=50320msec
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+For each data direction, it prints:
+.INDENT 0.0
+.TP
+\fBio=\fP
+Number of megabytes I/O performed.
+.TP
+\fBaggrb=\fP
+Aggregate bandwidth of threads in this group.
+.TP
+\fBminb=\fP
+The minimum average bandwidth a thread saw.
+.TP
+\fBmaxb=\fP
+The maximum average bandwidth a thread saw.
+.TP
+\fBmint=\fP
+The smallest runtime of the threads in that group.
+.TP
+\fBmaxt=\fP
+The longest runtime of the threads in that group.
+.UNINDENT
+.sp
+And finally, the disk statistics are printed. They will look like this:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Disk stats (read/write):
+  sda: ios=16398/16511, merge=30/162, ticks=6853/819634, in_queue=826487, util=100.00%
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Each value is printed for both reads and writes, with reads first. The
+numbers denote:
+.INDENT 0.0
+.TP
+\fBios=\fP
+Number of ios performed by all groups.
+.TP
+\fBmerge=\fP
+Number of merges I/O the I/O scheduler.
+.TP
+\fBticks=\fP
+Number of ticks we kept the disk busy.
+.TP
+\fBio_queue=\fP
+Total time spent in the disk queue.
+.TP
+\fButil=\fP
+The disk utilization. A value of 100% means we kept the disk
+busy constantly, 50% would be a disk idling half of the time.
+.UNINDENT
+.sp
+It is also possible to get fio to dump the current output while it is
+running, without terminating the job. To do that, send fio the \fBUSR1\fP signal.
+You can also get regularly timed dumps by using the \fB\-\-status\-interval\fP
+parameter, or by creating a file in \fB/tmp\fP named \fBfio\-dump\-status\fP\&. If fio
+sees this file, it will unlink it and dump the current output status.
+.SH TERSE OUTPUT
+.sp
+For scripted usage where you typically want to generate tables or graphs
+of the results, fio can output the results in a semicolon separated format.
+The format is one long line of values, such as:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+2;card0;0;0;7139336;121836;60004;1;10109;27.932460;116.933948;220;126861;3495.446807;1085.368601;226;126864;3523.635629;1089.012448;24063;99944;50.275485%;59818.274627;5540.657370;7155060;122104;60004;1;8338;29.086342;117.839068;388;128077;5032.488518;1234.785715;391;128085;5061.839412;1236.909129;23436;100928;50.287926%;59964.832030;5644.844189;14.595833%;19.394167%;123706;0;7313;0.1%;0.1%;0.1%;0.1%;0.1%;0.1%;100.0%;0.00%;0.00%;0.00%;0.00%;0.00%;0.00%;0.01%;0.02%;0.05%;0.16%;6.04%;40.40%;52.68%;0.64%;0.01%;0.00%;0.01%;0.00%;0.00%;0.00%;0.00%;0.00%
+A description of this job goes here.
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The job description (if provided) follows on a second line.
+.sp
+To enable terse output, use the \fB\-\-minimal\fP command line option. The first
+value is the version of the terse output format. If the output has to
+be changed for some reason, this number will be incremented by 1 to
+signify that change.
+.sp
+Split up, the format is as follows:
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+terse version, fio version, jobname, groupid, error
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+READ status:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Total IO (KiB), bandwidth (KiB/sec), IOPS, runtime (msec)
+Submission latency: min, max, mean, stdev (usec)
+Completion latency: min, max, mean, stdev (usec)
+Completion latency percentiles: 20 fields (see below)
+Total latency: min, max, mean, stdev (usec)
+Bw (KiB/s): min, max, aggregate percentage of total, mean, stdev
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+WRITE status:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Total IO (KiB), bandwidth (KiB/sec), IOPS, runtime (msec)
+Submission latency: min, max, mean, stdev (usec)
+Completion latency: min, max, mean, stdev(usec)
+Completion latency percentiles: 20 fields (see below)
+Total latency: min, max, mean, stdev (usec)
+Bw (KiB/s): min, max, aggregate percentage of total, mean, stdev
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+CPU usage:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+user, system, context switches, major faults, minor faults
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+I/O depths:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<=1, 2, 4, 8, 16, 32, >=64
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+I/O latencies microseconds:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<=2, 4, 10, 20, 50, 100, 250, 500, 750, 1000
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+I/O latencies milliseconds:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<=2, 4, 10, 20, 50, 100, 250, 500, 750, 1000, 2000, >=2000
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Disk utilization:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Disk name, Read ios, write ios,
+Read merges, write merges,
+Read ticks, write ticks,
+Time spent in queue, disk utilization percentage
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Additional Info (dependent on continue_on_error, default off):
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+total # errors, first error code
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Additional Info (dependent on description being set):
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+Text description
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+Completion latency percentiles can be a grouping of up to 20 sets, so
+for the terse output fio writes all of them. Each field will look like this:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+1.00%=6112
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+which is the Xth percentile, and the \fIusec\fP latency associated with it.
+.sp
+For disk utilization, all disks used by fio are shown. So for each disk
+there will be a disk utilization section.
+.SH TRACE FILE FORMAT
+.sp
+There are two trace file format that you can encounter. The older (v1) format
+is unsupported since version 1.20\-rc3 (March 2008). It will still be described
+below in case that you get an old trace and want to understand it.
+.sp
+In any case the trace is a simple text file with a single action per line.
+.SS Trace file format v1
+.sp
+Each line represents a single I/O action in the following format:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+rw, offset, length
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+where \fIrw=0/1\fP for read/write, and the offset and length entries being in bytes.
+.sp
+This format is not supported in Fio versions => 1.20\-rc3.
+.SS Trace file format v2
+.sp
+The second version of the trace file format was added in Fio version 1.17.
+It allows to access more then one file per trace and has a bigger set of
+possible file actions.
+.sp
+The first line of the trace file has to be:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+fio version 2 iolog
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Following this can be lines in two different formats, which are described below.
+.sp
+The file management format:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+filename action
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The filename is given as an absolute path. The action can be one of these:
+.INDENT 0.0
+.TP
+\fBadd\fP
+Add the given filename to the trace
+.TP
+\fBopen\fP
+Open the file with the given filename. The filename has to have
+been added with the \fBadd\fP action before.
+.TP
+\fBclose\fP
+Close the file with the given filename. The file has to have been
+opened before.
+.UNINDENT
+.sp
+The file I/O action format:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+filename action offset length
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The filename is given as an absolute path, and has to have been added and opened
+before it can be used with this format. The offset and length are given in
+bytes. The action can be one of these:
+.INDENT 0.0
+.TP
+\fBwait\fP
+Wait for \(aqoffset\(aq microseconds. Everything below 100 is discarded.
+The time is relative to the previous wait statement.
+.TP
+\fBread\fP
+Read \(aqlength\(aq bytes beginning from \(aqoffset\(aq
+.TP
+\fBwrite\fP
+Write \(aqlength\(aq bytes beginning from \(aqoffset\(aq
+.TP
+\fBsync\fP
+\fBfsync(2)\fP the file
+.TP
+\fBdatasync\fP
+\fBfdatasync(2)\fP the file
+.TP
+\fBtrim\fP
+trim the given file from the given \(aqoffset\(aq for \(aqlength\(aq bytes
+.UNINDENT
+.SH CPU IDLENESS PROFILING
+.sp
+In some cases, we want to understand CPU overhead in a test. For example,
+we test patches for the specific goodness of whether they reduce CPU usage.
+fio implements a balloon approach to create a thread per CPU that runs at
+idle priority, meaning that it only runs when nobody else needs the cpu.
+By measuring the amount of work completed by the thread, idleness of each
+CPU can be derived accordingly.
+.sp
+An unit work is defined as touching a full page of unsigned characters. Mean
+and standard deviation of time to complete an unit work is reported in "unit
+work" section. Options can be chosen to report detailed percpu idleness or
+overall system idleness by aggregating percpu stats.
+.SH VERIFICATION AND TRIGGERS
+.sp
+Fio is usually run in one of two ways, when data verification is done. The
+first is a normal write job of some sort with verify enabled. When the
+write phase has completed, fio switches to reads and verifies everything
+it wrote. The second model is running just the write phase, and then later
+on running the same job (but with reads instead of writes) to repeat the
+same I/O patterns and verify the contents. Both of these methods depend
+on the write phase being completed, as fio otherwise has no idea how much
+data was written.
+.sp
+With verification triggers, fio supports dumping the current write state
+to local files. Then a subsequent read verify workload can load this state
+and know exactly where to stop. This is useful for testing cases where
+power is cut to a server in a managed fashion, for instance.
+.sp
+A verification trigger consists of two things:
+.INDENT 0.0
+.IP 1. 3
+Storing the write state of each job
+.IP 2. 3
+Executing a trigger command
+.UNINDENT
+.sp
+The write state is relatively small, on the order of hundreds of bytes
+to single kilobytes. It contains information on the number of completions
+done, the last X completions, etc.
+.sp
+A trigger is invoked either through creation (\(aqtouch\(aq) of a specified
+file in the system, or through a timeout setting. If fio is run with
+\fB\-\-trigger\-file\fP = \fB/tmp/trigger\-file\fP, then it will continually check for
+the existence of \fB/tmp/trigger\-file\fP\&. When it sees this file, it will
+fire off the trigger (thus saving state, and executing the trigger
+command).
+.sp
+For client/server runs, there\(aqs both a local and remote trigger. If
+fio is running as a server backend, it will send the job states back
+to the client for safe storage, then execute the remote trigger, if
+specified. If a local trigger is specified, the server will still send
+back the write state, but the client will then execute the trigger.
+.SS Verification trigger example
+.sp
+Lets say we want to run a powercut test on the remote machine \(aqserver\(aq.
+Our write workload is in write\-test.fio. We want to cut power to \(aqserver\(aq
+at some point during the run, and we\(aqll run this test from the safety
+or our local machine, \(aqlocalbox\(aq. On the server, we\(aqll start the fio
+backend normally:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+server# fio \-\-server
+
+and on the client, we\(aqll fire off the workload:
+
+localbox$ fio \-\-client=server \-\-trigger\-file=/tmp/my\-trigger \-\-trigger\-remote="bash \-c \e"echo b > /proc/sysrq\-triger\e""
+
+We set /tmp/my\-trigger as the trigger file, and we tell fio to execute
+
+echo b > /proc/sysrq\-trigger
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+on the server once it has received the trigger and sent us the write
+state. This will work, but it\(aqs not _really_ cutting power to the server,
+it\(aqs merely abruptly rebooting it. If we have a remote way of cutting
+power to the server through IPMI or similar, we could do that through
+a local trigger command instead. Lets assume we have a script that does
+IPMI reboot of a given hostname, ipmi\-reboot. On localbox, we could
+then have run fio with a local trigger instead:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+localbox$ fio \-\-client=server \-\-trigger\-file=/tmp/my\-trigger \-\-trigger="ipmi\-reboot server"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+For this case, fio would wait for the server to send us the write state,
+then execute \(aqipmi\-reboot server\(aq when that happened.
+.SS Loading verify state
+.sp
+To load store write state, read verification job file must contain
+the verify_state_load option. If that is set, fio will load the previously
+stored state. For a local fio run this is done by loading the files directly,
+and on a client/server run, the server backend will ask the client to send
+the files over and load them from there.
+.SH LOG FILE FORMATS
+.sp
+Fio supports a variety of log file formats, for logging latencies, bandwidth,
+and IOPS. The logs share a common format, which looks like this:
+.INDENT 0.0
+.INDENT 3.5
+\fItime\fP (\fImsec\fP), \fIvalue\fP, \fIdata direction\fP, \fIoffset\fP
+.UNINDENT
+.UNINDENT
+.sp
+Time for the log entry is always in milliseconds. The \fIvalue\fP logged depends
+on the type of log, it will be one of the following:
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+\fBLatency log\fP   \-\- Value is latency in usecs
+.IP \(bu 2
+\fBBandwidth log\fP \-\- Value is in KiB/sec
+.IP \(bu 2
+\fBIOPS log\fP      \-\- Value is IOPS
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fIData direction\fP is one of the following:
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+\fB0\fP                 \-\- I/O is a READ
+.IP \(bu 2
+\fB1\fP                 \-\- I/O is a WRITE
+.IP \(bu 2
+\fB2\fP                 \-\- I/O is a TRIM
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+The \fIoffset\fP is the offset, in bytes, from the start of the file, for that
+particular I/O. The logging of the offset can be toggled with \fI\%log_offset\fP
+.sp
+If windowed logging is enabled through \fI\%log_avg_msec\fP then fio doesn\(aqt log
+individual IOs. Instead of logs the average values over the specified
+period of time. Since \(aqdata direction\(aq and \(aqoffset\(aq are per\-I/O values,
+they aren\(aqt applicable if windowed logging is enabled. If windowed logging
+is enabled and \fI\%log_max_value\fP is set, then fio logs maximum values in
+that window instead of averages.
+.SH AUTHOR
+Jens Axboe <axboe@kernel.dk>
+.SH COPYRIGHT
+2016, Jens Axboe <axboe@kernel.dk>
+.\" Generated by docutils manpage writer.
+.
